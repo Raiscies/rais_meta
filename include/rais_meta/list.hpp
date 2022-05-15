@@ -108,11 +108,6 @@ private:
 
 	using self = type_list;
 
-	template <typename...>
-	struct shift_impl { using result = type_list<>; };
-	template <typename First, typename... Tails>
-	struct shift_impl<First, Tails...> { using result = type_list<Tails...>; };
-
 	template <typename CurrentList, typename... Ts>
 	struct pop_impl {
 		using result = type_list<>;
@@ -167,7 +162,7 @@ private:
 	//index >= length
 	template <size_t current_index, size_t index, typename CurrentNode, typename ResultList, typename... NewTypes>
 	struct insert_impl<current_index, index, true, CurrentNode, ResultList, NewTypes...> {
-		using result = type_list<Types..., NewTypes...>;
+		using result = type_list<Type, Types..., NewTypes...>;
 	};
 
 
@@ -217,6 +212,185 @@ public:
 		else 
 			return std::tuple<>{};
 	}
+};
+
+template <typename ValueT, ValueT... values>
+struct value_node {
+	using value_t = ValueT;
+};
+
+template <typename ValueT, ValueT this_value, ValueT... values>
+struct value_node<ValueT, this_value, values...> {
+	using value_t = ValueT;
+	using next = value_node<value_t, values...>;
+
+	static constexpr value_t value = this_value; 
+};
+
+template <typename ValueT, ValueT... values>
+struct value_list {
+	//sizeof...(values) == 0;
+	using value_t = ValueT;
+	using head = value_node<value_t>;
+
+	static constexpr size_t length = 0;
+
+	static constexpr value_t* data = nullptr;
+private:
+	template <typename FriendValueT, FriendValueT...>
+	friend class value_list;
+
+	using self = value_list;
+
+	template <typename...>
+	struct concat_impl {
+		using result = self;
+	};
+	template <value_t... new_values, typename... NewLists>
+	struct concat_impl<value_list<value_t, new_values...>, NewLists...> {
+		using result = typename value_list<value_t, new_values...>::template concat_impl<NewLists...>::result;
+	};
+
+public:
+
+	template <value_t new_value, value_t... new_values> using push    = value_list<value_t, new_value, new_values...>;
+ 
+	template <value_t new_value, value_t... new_values> using unshift = push<new_value, new_values...>;
+
+	template <size_t index, value_t new_value, value_t... new_values>  using insert = push<new_value, new_values...>;
+
+	template <typename NewList, typename... NewLists> using concat    = typename concat_impl<NewList, NewLists...>::result;
+
+	template <value_t target>                         using contains  = meta_bool<false>;
+
+	template <template <value_t...> class Function>   using for_each  = self;
+
+	template <template <value_t...> class Container>  using cast      = Container<>;
+
+	template <value_t old_value, value_t new_value>   using replace   = self;
+
+	template <template <value_t> class Predicate, value_t new_value> using replace_if = self;
+
+	using begin    = value_node<value_t>;
+
+	using end      = value_node<value_t>;
+ 
+	static constexpr value_t* to_array = nullptr;
+
+	static constexpr auto to_tuple() noexcept{ return std::tuple<>{}; }
+
+
+};
+
+template <typename ValueT, ValueT value, ValueT... values>
+struct value_list<ValueT, value, values...> {
+	using value_t = ValueT;
+	using head = value_node<value_t, value, values...>;
+
+	static constexpr size_t length = sizeof...(values) + 1;
+
+	static constexpr value_t data[length] = {value, values...};
+private:
+	template <typename FriendValueT, FriendValueT...>
+	friend class value_list;
+
+	using self = value_list;
+
+	template <typename Node>
+	struct to_list {};
+	template <value_t... node_values> 
+	struct to_list<value_node<value_t, node_values...>> {
+		using result = value_list<value_t, node_values...>;
+	};
+
+	template <size_t current_index, size_t index, bool insert_on_tail, typename CurrentNode, typename ResultList, value_t... new_values>
+	struct insert_impl {
+		//insert_on_tail == false
+		using result = typename insert_impl<current_index + 1, index, false, typename CurrentNode::next, typename ResultList::template push<CurrentNode::value>, new_values... >::result;
+	};
+	template <size_t index, typename CurrentNode, typename ResultList, value_t... new_values>
+	struct insert_impl<index, index, false, CurrentNode, ResultList, new_values...> {
+		using result = typename ResultList::template push<new_values...>::template concat< to_list<CurrentNode> >;
+	};
+	//index >= length
+	template <size_t current_index, size_t index, typename CurrentNode, typename ResultList, value_t... new_values>
+	struct insert_impl<current_index, index, true, CurrentNode, ResultList, new_values...> {
+		using result = value_list<value_t, value, values..., new_values...>;
+	};
+
+	template <typename...>
+	struct concat_impl {
+		using result = self;
+	};
+	template <value_t... new_values, typename... NewLists>
+	struct concat_impl<value_list<value_t, new_values...>, NewLists...> {
+		using result = typename value_list<value_t, value, values..., new_values...>::template concat_impl<NewLists...>::result;
+	};
+
+	template <size_t current_index, size_t index, value_t new_value, typename CurrentNode, typename ResultList>
+	struct set_impl {
+		static_assert(index < length, "target index out of bound");
+		using result = typename set_impl<current_index + 1, index, new_value, typename CurrentNode::next, typename ResultList::template push<typename CurrentNode::value> >::result;
+	};
+	template <size_t index, value_t new_value, typename CurrentNode, typename ResultList>
+	struct set_impl<index, index, new_value, CurrentNode, ResultList> {
+		using result = typename ResultList::template push<new_value>::template concat< to_list<typename CurrentNode::next> >;
+	};
+
+	template <typename CurrentList, value_t...>
+	struct pop_impl {
+		using result = value_list<value_t>;
+	};
+	template <typename CurrentList, value_t current_value, value_t... current_values>
+	struct pop_impl<CurrentList, current_value, current_values...> {
+		using result = meta_if<sizeof...(current_values) == 0, 
+			CurrentList, 
+			typename pop_impl<typename CurrentList::template push<current_value>, current_values...>::result
+		>;
+	};
+
+public:
+
+	template <value_t new_value, value_t... new_values> using push    = value_list<value_t, value, values..., new_value, new_values...>;
+ 
+	template <value_t new_value, value_t... new_values> using unshift = value_list<value_t, new_value, new_values..., value, values...>;
+
+	template <size_t index, value_t new_value, value_t... new_values>  using insert = typename insert_impl<0, index, (index >= length), head, value_list<value_t>, new_value, new_values...>::result;
+
+	template <typename NewList, typename... NewLists> using concat    = typename concat_impl<NewList, NewLists...>::result;
+
+	static constexpr value_t get(size_t index) noexcept{ return index >= length ? data[length - 1] : data[index]; }
+	
+	template <size_t index, value_t new_value>        using set       = typename set_impl<0, index, new_value, head, value_list<value_t>>::result;
+
+	template <value_t target>                         using contains  = meta_bool<(target == value) || ((target == values) || ...)>;
+
+	//requires Function<val>::result
+	template <template <value_t...> class Function>   using for_each  = value_list<value_t, Function<value>::value, Function<values>::value...>;
+
+	template <template <value_t...> class Container>  using cast      = Container<value, values...>;
+
+	template <value_t old_value, value_t new_value>   using replace   = value_list<value_t, (old_value == value ? new_value : value), (old_value == values ? new_value : values)... >;
+
+	template <template <value_t> class Predicate, value_t new_value> using replace_if = value_list<value_t, (Predicate<value>::value ? new_value : value), (Predicate<values>::value ? new_value : values)... >;
+
+	using shift    = value_list<value_t, values...>;
+
+	using pop      = typename pop_impl<value_list<value_t>, value, values...>::result;
+
+	using begin    = head;
+
+	using end      = value_node<value_t>;
+
+	static constexpr value_t front = value;
+
+	static constexpr value_t back = data[length - 1];
+ 
+	static constexpr value_t* to_array = data;
+
+	static constexpr auto to_tuple() noexcept{ return std::tuple{value, values...}; }
+
+
 };
 
 

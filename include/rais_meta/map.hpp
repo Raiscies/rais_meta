@@ -56,7 +56,7 @@ struct dynamic_get_impl<KeyT, ValueTWithoutPtr*, type_node<> > {
 	}
 };
 
-} //namespace dynamicable_get_detail
+} //namespace dynamic_get_detail
 
 template <typename KeyT, typename ValueT, typename KVPairNode>
 [[gnu::always_inline]] inline constexpr ValueT dynamic_get(KeyT key) noexcept{
@@ -201,7 +201,7 @@ private:
 
 public:
 
-	static constexpr auto size = sizeof...(KVPairs);	
+	static constexpr size_t size = sizeof...(KVPairs);	
 
 	template <typename Key>                 using get      = typename get_impl<Key>::result::value;
 
@@ -255,7 +255,7 @@ struct bind_type {
 		using value_t = ValueT;
 
 
-		static constexpr auto size = sizeof...(KVPairs);
+		static constexpr size_t size = sizeof...(KVPairs);
 
 		template <key_t Key> static constexpr value_t get() noexcept{ return inner_map::template get<key_warpper<Key>>::value; }
 
@@ -313,7 +313,7 @@ struct bind_type<KeyT, void> {
 		using key_t = KeyT;
 		using value_t = void;
 
-		static constexpr auto size = sizeof...(KVPairs);
+		static constexpr size_t size = sizeof...(KVPairs);
 
 		template <key_t Key> static constexpr auto get() noexcept -> typename inner_map::template get<key_warpper<Key>>::type { return inner_map::template get<key_warpper<Key>>::value; } 
 
@@ -359,7 +359,7 @@ struct bind_type<KeyT, void> {
 		using key_t = KeyT;
 		using value_t = void;
 
-		static constexpr auto size = sizeof...(KVPairs);
+		static constexpr size_t size = sizeof...(KVPairs);
 
 		template <key_t Key>                                using get      = typename inner_map::template get<key_warpper<Key>>;
 
@@ -408,7 +408,7 @@ struct bind_type<void, ValueT> {
 		using key_t = void;
 		using value_t = ValueT;
 
-		static constexpr auto size = sizeof...(KVPairs);
+		static constexpr size_t size = sizeof...(KVPairs);
 
 		template <typename KeyT, KeyT Key> static constexpr value_t get() noexcept{ return inner_map::template get<meta_object<KeyT, Key>>::value; }
 
@@ -451,7 +451,7 @@ struct bind_type<void, ValueT> {
 		using key_t = void;
 		using value_t = ValueT;
 
-		static constexpr auto size = sizeof...(KVPairs);
+		static constexpr size_t size = sizeof...(KVPairs);
 
 		template <typename Key>                using get      = typename inner_map::template get<Key>;
 
@@ -498,7 +498,7 @@ struct bind_type<void, void> {
 		using key_t = void;
 		using value_t = void;
 
-		static constexpr auto size = sizeof...(KVPairs);
+		static constexpr size_t size = sizeof...(KVPairs);
 
 		template <typename KeyT, KeyT Key> static constexpr auto get() -> typename inner_map::template get<meta_object<KeyT, Key>>::type { return inner_map::template get<meta_object<KeyT, Key>>::value; }
 
