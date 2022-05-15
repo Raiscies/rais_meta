@@ -55,6 +55,7 @@ using meta_bool = meta_object<bool, value>;
 template <typename... Ts>
 struct types_pack {
 	static constexpr size_t size = 0;
+
 	template <template <typename...> class Templ>
 	using cast = Templ<>;
 };

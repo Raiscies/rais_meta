@@ -38,7 +38,7 @@ template <typename IteratorBegin, typename IteratorEnd, template <typename...> c
 using for_range = typename for_range_detail::for_range_impl<IteratorBegin, IteratorEnd, Function, InitContextPack>;
 
 template <typename Container, template <typename...> class Function, typename InitContextPack>
-using for_container = for_range<typename Container::begin, typename Container::tail, Function, InitContextPack>;
+using for_container = for_range<typename Container::begin, typename Container::end, Function, InitContextPack>;
 
 template <typename... Types>
 struct type_list {
