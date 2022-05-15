@@ -1,5 +1,5 @@
-#ifndef RAIS_META_BASE_H
-#define RAIS_META_BASE_H
+#ifndef RAIS_META_BASE_HPP
+#define RAIS_META_BASE_HPP
 
 #include <cstddef>
 #include <type_traits>
@@ -19,6 +19,34 @@ struct meta_object {
 	using type = T;
 	static constexpr T value = val;
 };
+
+template <char Value = '\0'>
+using meta_char = meta_object<char, Value>;
+template <unsigned char Value = 0>
+using meta_uchar = meta_object<unsigned char, Value>;
+
+template <short Value = 0>
+using meta_short = meta_object<short, Value>;
+template <unsigned short Value = 0>
+using meta_ushort = meta_object<unsigned short, Value>;
+
+template <int Value = 0>
+using meta_int = meta_object<int, Value>;
+template <unsigned int Value = 0>
+using meta_uint = meta_object<unsigned int, Value>;
+
+template <long Value = 0L>
+using meta_long = meta_object<long, Value>;
+template <unsigned long Value = 0UL>
+using meta_ulong = meta_object<unsigned long, Value>;
+
+template <long long Value = 0LL>
+using meta_llong = meta_object<long long, Value>;
+template <unsigned long long Value = 0ULL>
+using meta_ullong = meta_object<unsigned long long, Value>;
+
+template <size_t val>
+using meta_size_t = meta_object<size_t, val>;
 
 template <bool value = false>
 using meta_bool = meta_object<bool, value>;
@@ -111,8 +139,8 @@ private:
 		template <typename NextK, typename NextV>
 		using match = match_impl<NextK, NextV>;
 		
-		template <typename OtherV>
-		using mismatch = OtherV;
+		template <typename FallbackV>
+		using mismatch = FallbackV;
 		
 	};
 
@@ -123,7 +151,7 @@ private:
 		template <typename NextK, typename NextV>
 		using match = match_impl<T, V>;
 		
-		template <typename OtherV>
+		template <typename FallbackV>
 		using mismatch = V;
 		
 	};
@@ -139,6 +167,76 @@ public:
 
 template <typename T>
 using meta_switch = typename meta_switch_detail::meta_switch_impl<T>;
+
+namespace meta_args_detail {
+
+template <typename... Args>
+struct meta_args_impl {
+
+private:
+	template <bool condition, template <typename...> class IfTrueFunction, template <typename...> class... PossibleIfFalseFunction>
+	struct invoke_if_impl {};
+	template <template <typename...> class IfTrueFunction, template <typename...> class IfFalseFunction>
+	struct invoke_if_impl<true, IfTrueFunction, IfFalseFunction> {
+		using result = IfTrueFunction<Args...>;
+	};
+	template <template <typename...> class IfTrueFunction, template <typename...> class IfFalseFunction>
+	struct invoke_if_impl<false, IfTrueFunction, IfFalseFunction> {
+		using result = IfFalseFunction<Args...>;
+	};
+	template <template <typename...> class IfTrueFunction>
+	struct invoke_if_impl<true, IfTrueFunction> {
+		struct result {
+			template <bool next_condition, template <typename...> class NextIfTrueFunction, template <typename...> class... NextPossibleIfFalseFunction>
+			using elif = typename invoke_if_impl<true, IfTrueFunction, NextPossibleIfFalseFunction...>::result;
+		};
+	};
+	template <template <typename...> class IfTrueFunction>
+	struct invoke_if_impl<false, IfTrueFunction> {
+		struct result {
+			template <bool next_condition, template <typename...> class NextIfTrueFunction, template <typename...> class... NextPossibleIfFalseFunction>
+			using elif = typename invoke_if_impl<next_condition, NextIfTrueFunction, NextPossibleIfFalseFunction...>::result;
+		};
+	};
+
+	template <typename T>
+	struct invoke_switch_impl {
+	private:
+
+		template <typename K, template <typename...> class F>
+		struct match_impl {
+
+			template <typename NextK, template <typename...> class NextF>
+			using match = match_impl<NextK, NextF>;
+			
+			template <template <typename...> class FallbackF>
+			using mismatch = FallbackF<Args...>;
+			
+		};
+		template <template <typename...> class F>
+		struct match_impl<T, F> {
+			template <typename NextK, template <typename...> class NextF>
+			using match = match_impl<T, F>;
+			
+			template <template <typename...> class FallbackF>
+			using mismatch = F<Args...>;
+		};
+	public:
+		template <typename K, template <typename...> class F>
+		using match = match_impl<K, F>;
+	};
+
+	template <bool condition, template <typename...> class IfTrueFunction, template <typename...> class... PossibleIfFalseFunction>
+	using invoke_if = typename invoke_if_impl<condition, IfTrueFunction, PossibleIfFalseFunction...>::result;
+
+	template <typename T>
+	using invoke_switch = invoke_switch_impl<T>;
+};
+
+} //namespace meta_args_detail
+
+template <typename... Args>
+using meta_args = typename meta_args_detail::meta_args_impl<Args...>;
 
 //loop statement
 namespace meta_while_detail {
@@ -169,10 +267,48 @@ struct meta_while_impl_expand_pack<Predicate, Function, ContextPackTempl<Context
 template <template <typename...> class Predicate, template <typename...> class Function, typename InitContextPack>
 using meta_while = typename meta_while_detail::meta_while_impl_expand_pack<Predicate, Function, InitContextPack>::result;
 
-// template <template <typename...> class Predicate>
+
+//template traits
+namespace is_same_template_detail {
+
+template <template <typename...> class T, template <typename...> class U, template <typename...> class... Templs>
+struct is_same_template_impl {
+	using result = meta_bool<false>;
+};
+template <template <typename...> class T, template <typename...> class... Templs>
+struct is_same_template_impl<T, T, Templs...> {
+	using result = typename is_same_template_impl<T, Templs...>::result;
+};
+template <template <typename...> class T>
+struct is_same_template_impl <T, T> {
+	using result = meta_bool<true>;
+};
+
+} //namespace is_same_template_detail
+
+namespace is_instantiated_from_detail {
+
+template <typename T, template <typename...> class Templ> 
+struct is_instantiated_from_impl {
+	using result = meta_bool<false>;	
+};
+template <template <typename...> class Templ, typename... Args>
+struct is_instantiated_from_impl<Templ<Args...>, Templ> {
+	using result = meta_bool<true>;
+};
+
+} //nemaspace is_instantiated_from_detail
+
+//不支持含有非类型模板参数或模板模板参数的模板
+template <template <typename...> class... Templs>
+using is_same_template = typename is_same_template_detail::is_same_template_impl<Templs...>::result;
+
+template <typename T, template <typename...> class Templ> 
+using is_instantiated_from = typename is_instantiated_from_detail::is_instantiated_from_impl<T, Templ>::result;
+
 
 } // namespace meta
 } // namespace rais
 
 
-#endif // RAIS_META_BASE_H
+#endif // RAIS_META_BASE_HPP
