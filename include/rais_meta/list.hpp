@@ -217,12 +217,14 @@ public:
 template <typename ValueT, ValueT... values>
 struct value_node {
 	using value_t = ValueT;
+	using has_next = meta_bool<false>;
 };
 
 template <typename ValueT, ValueT this_value, ValueT... values>
 struct value_node<ValueT, this_value, values...> {
 	using value_t = ValueT;
 	using next = value_node<value_t, values...>;
+	using has_next = meta_bool<sizeof...(values) != 0>;
 
 	static constexpr value_t value = this_value; 
 };
