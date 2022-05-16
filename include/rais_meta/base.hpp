@@ -18,10 +18,61 @@ template <typename T, T val>
 struct meta_object {
 	using type = T;
 	static constexpr T value = val;
+
+};
+
+template <auto value> 
+using meta = meta_object<decltype(value), value>;
+
+template <typename T, T val> 
+struct meta_integer: meta_object<T, val> {
+	using typename meta_object<T, val>::type;
+	using meta_object<T, val>::value;
+	
+	template <typename Val, typename... Vals>
+	using add = meta_integer<type, ((value + Val::value) + ... + Vals::value)>;
+	template <typename Val, typename... Vals>
+	using sub = meta_integer<type, ((value - Val::value) - ... - Vals::value)>;
+	template <typename Val, typename... Vals>
+	using mul = meta_integer<type, ((value * Val::value) * ... * Vals::value)>;
+	template <typename Val, typename... Vals>
+	using div = meta_integer<type, ((value / Val::value) / ... / Vals::value)>;
+	template <typename Val, typename... Vals>
+	using mod = meta_integer<type, ((value % Val::value) % ... % Vals::value)>;
+
+	using inc = meta_integer<T, value + 1>;
+	using dec = meta_integer<T, value - 1>;
+	
+	template <typename Val, typename... Vals>
+	using bit_and = meta_integer<type, ((value & Val::value) & ... & Vals::value)>;
+	template <typename Val, typename... Vals>
+	using bit_or  = meta_integer<type, ((value | Val::value) | ... | Vals::value)>;
+	template <typename Val, typename... Vals>
+	using bit_xor = meta_integer<type, ((value ^ Val::value) ^ ... ^ Vals::value)>;
+
+	using bit_flip = meta_integer<T, ~value>;
+	
+};
+
+template <bool val = false>
+struct meta_bool: meta_object<bool, val> {
+	using typename meta_object<bool, val>::type;
+	using meta_object<bool, val>::value;
+
+	template <typename Val, typename... Vals>
+	using logic_and = meta_bool<((value && Val::value) && ... && Vals::value)>;
+
+	template <typename Val, typename... Vals>
+	using logic_or = meta_bool<((value || Val::value) || ... || Vals::value)>;
+
+	using logic_not = meta_bool<!value>;
+
 };
 
 template <char Value = '\0'>
 using meta_char = meta_object<char, Value>;
+template <signed char Value = 0>
+using meta_schar = meta_object<signed char, Value>;
 template <unsigned char Value = 0>
 using meta_uchar = meta_object<unsigned char, Value>;
 
@@ -48,9 +99,6 @@ using meta_ullong = meta_object<unsigned long long, Value>;
 template <size_t val>
 using meta_size_t = meta_object<size_t, val>;
 
-template <bool value = false>
-using meta_bool = meta_object<bool, value>;
-
 
 template <typename... Ts>
 struct types_pack {
@@ -58,6 +106,10 @@ struct types_pack {
 
 	template <template <typename...> class Templ>
 	using cast = Templ<>;
+
+	template <typename... NewTypes>   using unshift = types_pack<NewTypes...>;
+	template <typename... NewTypes>   using push    = types_pack<NewTypes...>;
+	template <size_t shift_count = 1> using shift   = types_pack<>;
 };
 template <typename T, typename... Ts>
 struct types_pack<T, Ts...> {
@@ -65,6 +117,11 @@ struct types_pack<T, Ts...> {
 	template <template <typename...> class Templ>
 	using cast = Templ<T, Ts...>;
 	using first = T;
+
+	//some simple function
+	template <typename... NewTypes>   using unshift = types_pack<NewTypes..., T, Ts...>;
+	template <typename... NewTypes>   using push    = types_pack<T, Ts..., NewTypes...>;
+	using shift   = types_pack<Ts...>;
 };
 
 template <template <typename...> class F>
@@ -86,6 +143,36 @@ public:
 	using unroll_apply = typename unroll_apply_impl<ArgsPack>::result;
 
 };
+template <typename ValueT>
+struct nontype_param {
+	using value_t = ValueT;
+
+	template <template <value_t, typename...> class F> //with one non-type param
+	struct function_warpper {
+	using value_t = ValueT;
+
+	private:
+		template <typename ArgsPack>
+		struct unroll_apply_impl {};
+		template <template <typename...> class TypesPack, template <value_t> class ValueWarpper, value_t value,typename... Args>
+		struct unroll_apply_impl<TypesPack<ValueWarpper<value>, Args...>> {
+			using result = F<value, Args...>;
+		};
+
+	public:
+		template <value_t value, typename... Args>
+		using apply = F<value, Args...>;
+
+		template <typename ArgsPack>
+		using unroll_apply = typename unroll_apply_impl<ArgsPack>::result;
+
+	};
+
+	template <template <value_t, typename...> class F, typename ArgsPack>
+	using unroll_apply = typename function_warpper<F>::template unroll_apply<ArgsPack>;
+
+};
+
 template <template <typename...> class F, typename ArgsPack>
 using unroll_apply = typename function_warpper<F>::template unroll_apply<ArgsPack>;
 
