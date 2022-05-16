@@ -27,18 +27,33 @@ template <typename ContextPack, typename Iterator,typename IteratorEnd, typename
 using for_range_predicate = typename std::negation<std::is_same<Iterator, IteratorEnd>>;
 
 template <typename ContextPack, typename Iterator, typename IteratorEnd, typename FunctionWarpper>
-using for_range_function = types_pack<typename FunctionWarpper::unroll_apply<ContextPack>, typename Iterator::next, IteratorEnd, FunctionWarpper>;
+using for_range_function = types_pack<typename FunctionWarpper::unroll_apply<typename ContextPack::template unshift<typename Iterator::type>>, typename Iterator::next, IteratorEnd, FunctionWarpper>;
 
 template <typename IteratorBegin, typename IteratorEnd, template <typename...> class Function, typename InitContextPack>
 using for_range_impl = typename meta_while<for_range_predicate, for_range_function, types_pack<InitContextPack, IteratorBegin, IteratorEnd, function_warpper<Function>>>::first;
 
+//for_value_range_detail
+
+template <typename ContextPack, typename Iterator, typename IteratorEnd, typename FunctionWarpper>
+using for_value_range_function = types_pack<typename FunctionWarpper::template unroll_apply<typename ContextPack::template unshift<meta<Iterator::value>>>, typename Iterator::next, IteratorEnd, FunctionWarpper>;
+
+template <typename IteratorBegin, typename IteratorEnd, template <IteratorBegin::value_t, typename...> class Function, typename InitContextPack>
+using for_value_range_impl = typename meta_while<for_range_predicate, for_value_range_function, types_pack<InitContextPack, IteratorBegin, IteratorEnd, typename nontype_param<typename IteratorBegin::value_t>::function_warpper<Function>>>::first;
+
+
 } // namespace for_range_detail
 
-template <typename IteratorBegin, typename IteratorEnd, template <typename...> class Function, typename InitContextPack>
+template <typename IteratorBegin, typename IteratorEnd, template <typename I, typename... Contexts> class Function, typename InitContextPack>
 using for_range = typename for_range_detail::for_range_impl<IteratorBegin, IteratorEnd, Function, InitContextPack>;
 
-template <typename Container, template <typename...> class Function, typename InitContextPack>
+template <typename Container, template <typename I, typename... Contexts> class Function, typename InitContextPack>
 using for_container = for_range<typename Container::begin, typename Container::end, Function, InitContextPack>;
+
+template <typename IteratorBegin, typename IteratorEnd, template <IteratorBegin::value_t I, typename... Contexts> class Function, typename InitContextPack>
+using for_value_range = typename for_range_detail::for_value_range_impl<IteratorBegin, IteratorEnd, Function, InitContextPack>;
+
+template <typename Container, template <Container::value_t I, typename... Contexts> class Function, typename InitContextPack>
+using for_value_container = for_value_range<typename Container::begin, typename Container::end, Function, InitContextPack>;
 
 template <typename... Types>
 struct type_list {
@@ -69,9 +84,19 @@ public:
 
 	using end     = type_node<>;
 
+	template <size_t shift_count = 1>                 using shift    = self;
+
+	template <size_t pop_count = 1>                   using pop      = self;
+
 	template <typename NewType, typename... NewTypes> using push     = type_list<NewType, NewTypes...>;
  
 	template <typename NewType, typename... NewTypes> using unshift  = push<NewType, NewTypes...>;
+
+	template <typename Target>                        using erase    = type_list<>;
+
+	template <size_t index>                           using erase_by_index = type_list<>;
+
+	template <template <typename> class Predicate>    using erase_if = type_list<>;
 
 	template <size_t index, typename NewType, typename... NewTypes>  using insert = push<NewType, NewTypes...>;
 
@@ -108,17 +133,28 @@ private:
 
 	using self = type_list;
 
-	template <typename CurrentList, typename... Ts>
+	template <size_t pop_count, typename CurrentList, typename... Ts>
 	struct pop_impl {
-		using result = type_list<>;
+		using result = CurrentList;
 	};
-	template <typename CurrentList, typename T, typename... Ts>
-	struct pop_impl<CurrentList, T, Ts...> {
-		using result = meta_if<sizeof...(Ts) == 0, 
-			CurrentList, 
-			typename pop_impl<typename CurrentList::template push<T>, Ts...>::result
+	template <size_t pop_count, typename CurrentList, typename T, typename... Ts>
+	struct pop_impl<pop_count, CurrentList, T, Ts...> {
+		using result = meta_if<pop_count == 0, 
+			self
+		>::template elif< sizeof...(Ts) == pop_count,  
+			typename CurrentList::template push<T>, 
+			typename pop_impl<pop_count, typename CurrentList::template push<T>, Ts...>::result
 		>;
 	};
+
+	template <typename I, typename CurrentList, typename PredicateWarpper> 
+	using erase_if_f = types_pack<meta_if<PredicateWarpper::template apply<I>::value, CurrentList, typename CurrentList::template push<I> >, PredicateWarpper>;
+
+	template <typename I, typename CurrentList, typename Index, typename CurrentIndex>
+	using erase_by_index_f = types_pack<meta_if<Index::value == CurrentIndex::value, CurrentList, typename CurrentList::template push<I>>, Index, typename CurrentIndex::inc>;
+
+	template <typename I, typename CurrentList, typename Target>
+	using erase_f = types_pack<meta_if<std::is_same<I, Target>::value, CurrentList, typename CurrentList::template push<I>>, Target>;
 
 	template <typename...>
 	struct concat_impl {
@@ -168,11 +204,25 @@ private:
 
 public:
 
+	using begin    = head;
+
+	using end      = type_node<>;
+
+	template <size_t shift_count = 1>                 using shift    = meta_if<shift_count == 0, self, typename type_list<Types...>::shift<shift_count - 1>>;
+
+	template <size_t pop_count = 1>                   using pop      = typename pop_impl<pop_count, type_list<>, Type, Types...>::result;
+
 	template <typename NewType, typename... NewTypes> using push     = type_list<Type, Types..., NewType, NewTypes...>;
  
 	template <typename NewType, typename... NewTypes> using unshift  = type_list<NewType, NewTypes..., Type, Types...>;
 
 	template <size_t index, typename NewType, typename... NewTypes>  using insert = typename insert_impl<0, index, (index >= length), head, type_list<>, NewType, NewTypes...>::result;
+
+	template <typename Target>                        using erase    = for_range<begin, end, erase_f, types_pack<type_list<>, Target>>;
+
+	template <size_t index>                           using erase_by_index = for_range<begin, end, erase_by_index_f, types_pack<type_list<>, meta_size_t<index>, meta_size_t<0>>>;
+
+	template <template <typename> class Predicate>    using erase_if = for_range<begin, end, erase_if_f, types_pack<type_list<>, function_warpper<Predicate>>>;
 
 	template <typename NewList, typename... NewLists> using concat   = typename concat_impl<NewList, NewLists...>::result;
 
@@ -189,14 +239,6 @@ public:
 	template <typename OldType, typename NewType>     using replace  = type_list< meta_if<std::is_same<OldType, Type>::value, NewType, Type>, meta_if<std::is_same<OldType, Types>::value, NewType, Types>... >;
 
 	template <template <typename> class Predicate, typename NewType> using replace_if = type_list< meta_if< Predicate<Type>::value, NewType, Type>, meta_if< Predicate<Types>::value, NewType, Types>... >;
-
-	using shift    = type_list<Types...>;
-
-	using pop      = typename pop_impl<type_list<>, Type, Types...>::result;
-
-	using begin    = head;
-
-	using end      = type_node<>;
 
 	using front    = Type;
 
@@ -254,10 +296,19 @@ private:
 	};
 
 public:
+	using begin    = value_node<value_t>;
 
+	using end      = value_node<value_t>;
+	
 	template <value_t new_value, value_t... new_values> using push    = value_list<value_t, new_value, new_values...>;
  
 	template <value_t new_value, value_t... new_values> using unshift = push<new_value, new_values...>;
+	
+	template <value_t target>                           using erase    = value_list<value_t>;
+
+	template <size_t index>                             using erase_by_index = value_list<value_t>;
+
+	template <template <value_t> class Predicate>       using erase_if = value_list<value_t>;
 
 	template <size_t index, value_t new_value, value_t... new_values>  using insert = push<new_value, new_values...>;
 
@@ -272,10 +323,6 @@ public:
 	template <value_t old_value, value_t new_value>   using replace   = self;
 
 	template <template <value_t> class Predicate, value_t new_value> using replace_if = self;
-
-	using begin    = value_node<value_t>;
-
-	using end      = value_node<value_t>;
  
 	static constexpr value_t* to_array = nullptr;
 
@@ -350,32 +397,17 @@ private:
 			typename pop_impl<typename CurrentList::template push<current_value>, current_values...>::result
 		>;
 	};
+	template <value_t i, typename CurrentList, typename PredicateWarpper> 
+	using erase_if_f = types_pack<meta_if<PredicateWarpper::template apply<i>::value, CurrentList, typename CurrentList::template push<i> >, PredicateWarpper>;
 
-public:
+	template <value_t i, typename CurrentList, typename Index, typename CurrentIndex>
+	using erase_by_index_f = types_pack<meta_if<Index::value == CurrentIndex::value, CurrentList, typename CurrentList::template push<i>>, Index, typename CurrentIndex::inc>;
 
-	template <value_t new_value, value_t... new_values> using push    = value_list<value_t, value, values..., new_value, new_values...>;
- 
-	template <value_t new_value, value_t... new_values> using unshift = value_list<value_t, new_value, new_values..., value, values...>;
+	template <value_t i, typename CurrentList, typename Target>
+	using erase_f = types_pack<meta_if<i == Target::value, CurrentList, typename CurrentList::template push<i>>, Target>;
 
-	template <size_t index, value_t new_value, value_t... new_values>  using insert = typename insert_impl<0, index, (index >= length), head, value_list<value_t>, new_value, new_values...>::result;
 
-	template <typename NewList, typename... NewLists> using concat    = typename concat_impl<NewList, NewLists...>::result;
-
-	static constexpr value_t get(size_t index) noexcept{ return index >= length ? data[length - 1] : data[index]; }
-	
-	template <size_t index, value_t new_value>        using set       = typename set_impl<0, index, new_value, head, value_list<value_t>>::result;
-
-	template <value_t target>                         using contains  = meta_bool<(target == value) || ((target == values) || ...)>;
-
-	//requires Function<val>::result
-	template <template <value_t...> class Function>   using for_each  = value_list<value_t, Function<value>::value, Function<values>::value...>;
-
-	template <template <value_t...> class Container>  using cast      = Container<value, values...>;
-
-	template <value_t old_value, value_t new_value>   using replace   = value_list<value_t, (old_value == value ? new_value : value), (old_value == values ? new_value : values)... >;
-
-	template <template <value_t> class Predicate, value_t new_value> using replace_if = value_list<value_t, (Predicate<value>::value ? new_value : value), (Predicate<values>::value ? new_value : values)... >;
-
+public:	
 	using shift    = value_list<value_t, values...>;
 
 	using pop      = typename pop_impl<value_list<value_t>, value, values...>::result;
@@ -383,6 +415,35 @@ public:
 	using begin    = head;
 
 	using end      = value_node<value_t>;
+
+	template <value_t new_value, value_t... new_values> using push     = value_list<value_t, value, values..., new_value, new_values...>;
+ 
+	template <value_t new_value, value_t... new_values> using unshift  = value_list<value_t, new_value, new_values..., value, values...>;
+
+	template <value_t target>                           using erase    = for_value_range<begin, end, erase_f, types_pack<value_list<value_t>, meta<target>>>;
+
+	template <size_t index>                             using erase_by_index = for_value_range<begin, end, erase_by_index_f, types_pack<value_list<value_t>, meta_size_t<index>, meta_size_t<0>>>;
+
+	template <template <value_t> class Predicate>       using erase_if = for_value_range<begin, end, erase_if_f, types_pack<value_list<value_t>, typename nontype_param<value_t>::function_warpper<Predicate>>>;
+
+	template <size_t index, value_t new_value, value_t... new_values>  using insert = typename insert_impl<0, index, (index >= length), head, value_list<value_t>, new_value, new_values...>::result;
+
+	template <typename NewList, typename... NewLists> using concat     = typename concat_impl<NewList, NewLists...>::result;
+
+	static constexpr value_t get(size_t index) noexcept{ return index >= length ? data[length - 1] : data[index]; }
+	
+	template <size_t index, value_t new_value>        using set        = typename set_impl<0, index, new_value, head, value_list<value_t>>::result;
+
+	template <value_t target>                         using contains   = meta_bool<(target == value) || ((target == values) || ...)>;
+
+	//requires Function<val>::result
+	template <template <value_t...> class Function>   using for_each   = value_list<value_t, Function<value>::value, Function<values>::value...>;
+
+	template <template <value_t...> class Container>  using cast       = Container<value, values...>;
+
+	template <value_t old_value, value_t new_value>   using replace    = value_list<value_t, (old_value == value ? new_value : value), (old_value == values ? new_value : values)... >;
+
+	template <template <value_t> class Predicate, value_t new_value> using replace_if = value_list<value_t, (Predicate<value>::value ? new_value : value), (Predicate<values>::value ? new_value : values)... >;
 
 	static constexpr value_t front = value;
 
