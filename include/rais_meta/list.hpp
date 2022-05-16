@@ -147,14 +147,16 @@ private:
 		>;
 	};
 
+	//using alias('using' statement) will trig a complier bug: CWG1430
+	//see https://stackoverflow.com/questions/30707011/pack-expansion-for-alias-template
 	template <typename I, typename CurrentList, typename PredicateWarpper> 
-	using erase_if_f = types_pack<meta_if<PredicateWarpper::template apply<I>::value, CurrentList, typename CurrentList::template push<I> >, PredicateWarpper>;
+	struct erase_if_f: types_pack<meta_if<PredicateWarpper::template apply<I>::value, CurrentList, typename CurrentList::template push<I> >, PredicateWarpper> {};
 
 	template <typename I, typename CurrentList, typename Index, typename CurrentIndex>
-	using erase_by_index_f = types_pack<meta_if<Index::value == CurrentIndex::value, CurrentList, typename CurrentList::template push<I>>, Index, typename CurrentIndex::inc>;
+	struct erase_by_index_f: types_pack<meta_if<Index::value == CurrentIndex::value, CurrentList, typename CurrentList::template push<I>>, Index, typename CurrentIndex::inc> {};
 
 	template <typename I, typename CurrentList, typename Target>
-	using erase_f = types_pack<meta_if<std::is_same<I, Target>::value, CurrentList, typename CurrentList::template push<I>>, Target>;
+	struct erase_f: types_pack<meta_if<std::is_same<I, Target>::value, CurrentList, typename CurrentList::template push<I>>, Target> {};
 
 	template <typename...>
 	struct concat_impl {
@@ -218,11 +220,11 @@ public:
 
 	template <size_t index, typename NewType, typename... NewTypes>  using insert = typename insert_impl<0, index, (index >= length), head, type_list<>, NewType, NewTypes...>::result;
 
-	template <typename Target>                        using erase    = for_range<begin, end, erase_f, types_pack<type_list<>, Target>>;
+	template <typename Target>                        using erase    = typename for_range<begin, end, erase_f, types_pack<type_list<>, Target>>::first;
 
-	template <size_t index>                           using erase_by_index = for_range<begin, end, erase_by_index_f, types_pack<type_list<>, meta_size_t<index>, meta_size_t<0>>>;
+	template <size_t index>                           using erase_by_index = typename for_range<begin, end, erase_by_index_f, types_pack<type_list<>, meta_size_t<index>, meta_size_t<0>>>::first;
 
-	template <template <typename> class Predicate>    using erase_if = for_range<begin, end, erase_if_f, types_pack<type_list<>, function_warpper<Predicate>>>;
+	template <template <typename> class Predicate>    using erase_if = typename for_range<begin, end, erase_if_f, types_pack<type_list<>, function_warpper<Predicate>>>::first;
 
 	template <typename NewList, typename... NewLists> using concat   = typename concat_impl<NewList, NewLists...>::result;
 
@@ -299,7 +301,7 @@ public:
 	using begin    = value_node<value_t>;
 
 	using end      = value_node<value_t>;
-	
+
 	template <value_t new_value, value_t... new_values> using push    = value_list<value_t, new_value, new_values...>;
  
 	template <value_t new_value, value_t... new_values> using unshift = push<new_value, new_values...>;
@@ -398,13 +400,13 @@ private:
 		>;
 	};
 	template <value_t i, typename CurrentList, typename PredicateWarpper> 
-	using erase_if_f = types_pack<meta_if<PredicateWarpper::template apply<i>::value, CurrentList, typename CurrentList::template push<i> >, PredicateWarpper>;
+	struct erase_if_f: types_pack<meta_if<PredicateWarpper::template apply<i>::value, CurrentList, typename CurrentList::template push<i> >, PredicateWarpper> {};
 
 	template <value_t i, typename CurrentList, typename Index, typename CurrentIndex>
-	using erase_by_index_f = types_pack<meta_if<Index::value == CurrentIndex::value, CurrentList, typename CurrentList::template push<i>>, Index, typename CurrentIndex::inc>;
+	struct erase_by_index_f: types_pack<meta_if<Index::value == CurrentIndex::value, CurrentList, typename CurrentList::template push<i>>, Index, typename CurrentIndex::inc> {};
 
 	template <value_t i, typename CurrentList, typename Target>
-	using erase_f = types_pack<meta_if<i == Target::value, CurrentList, typename CurrentList::template push<i>>, Target>;
+	struct erase_f: types_pack<meta_if<i == Target::value, CurrentList, typename CurrentList::template push<i>>, Target> {};
 
 
 public:	
@@ -420,11 +422,11 @@ public:
  
 	template <value_t new_value, value_t... new_values> using unshift  = value_list<value_t, new_value, new_values..., value, values...>;
 
-	template <value_t target>                           using erase    = for_value_range<begin, end, erase_f, types_pack<value_list<value_t>, meta<target>>>;
+	template <value_t target>                           using erase    = typename for_value_range<begin, end, erase_f, types_pack<value_list<value_t>, meta<target>>>::first;
 
-	template <size_t index>                             using erase_by_index = for_value_range<begin, end, erase_by_index_f, types_pack<value_list<value_t>, meta_size_t<index>, meta_size_t<0>>>;
+	template <size_t index>                             using erase_by_index = typename for_value_range<begin, end, erase_by_index_f, types_pack<value_list<value_t>, meta_size_t<index>, meta_size_t<0>>>::first;
 
-	template <template <value_t> class Predicate>       using erase_if = for_value_range<begin, end, erase_if_f, types_pack<value_list<value_t>, typename nontype_param<value_t>::function_warpper<Predicate>>>;
+	template <template <value_t> class Predicate>       using erase_if = typename for_value_range<begin, end, erase_if_f, types_pack<value_list<value_t>, typename nontype_param<value_t>::function_warpper<Predicate>>>::first;
 
 	template <size_t index, value_t new_value, value_t... new_values>  using insert = typename insert_impl<0, index, (index >= length), head, value_list<value_t>, new_value, new_values...>::result;
 

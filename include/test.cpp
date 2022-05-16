@@ -16,9 +16,15 @@ using list2 = list1::replace<void****, void**** const>;
 
 using list3 = list2::replace_if<std::is_const, int>;
 
-using list4 = type_list<int, double, void, const int>;
+using list4 = type_list<int, double, void, const int, long int, void, char>;
 
-// debug_type<list3>;
+using vlist1 = value_list<char, 'a', 'b', 'c'>;
+
+// debug_type<vlist1>;
+
+using list5 = list4::erase<void>;
+
+debug_type<list5>;
 
 
 int main() {
