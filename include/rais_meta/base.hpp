@@ -154,9 +154,9 @@ struct nontype_param {
 	private:
 		template <typename ArgsPack>
 		struct unroll_apply_impl {};
-		template <template <typename...> class TypesPack, template <value_t> class ValueWarpper, value_t value,typename... Args>
-		struct unroll_apply_impl<TypesPack<ValueWarpper<value>, Args...>> {
-			using result = F<value, Args...>;
+		template <template <typename...> class TypesPack, typename ValueWarpper, typename... Args>
+		struct unroll_apply_impl<TypesPack<ValueWarpper, Args...>> {
+			using result = F<ValueWarpper::value, Args...>;
 		};
 
 	public:

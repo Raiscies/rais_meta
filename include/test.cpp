@@ -18,13 +18,19 @@ using list3 = list2::replace_if<std::is_const, int>;
 
 using list4 = type_list<int, double, void, const int, long int, void, char>;
 
-using vlist1 = value_list<char, 'a', 'b', 'c'>;
+using vlist1 = value_list<char, ' ', 'a', 'b', ' ', 'c', 'd', '&', ' ', 'G', '3', '*', '#', ' ', ' ', '@',' '>;
 
 // debug_type<vlist1>;
 
 using list5 = list4::erase<void>;
 
-debug_type<list5>;
+using list6 = type_list<void, int, char, void, void*, double, long, void, short, decltype(nullptr), void>;
+
+using splited_list6 = list6::split<void>;
+
+using splited_vlist1 = vlist1::split<' '>;
+
+debug_type<splited_vlist1>;
 
 
 int main() {

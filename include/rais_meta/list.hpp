@@ -108,6 +108,8 @@ public:
 
 	template <template <typename...> class Container> using cast     = Container<>;
 
+	template <typename Separator>                     using split    = self;
+
 	template <typename OldType, typename NewType>     using replace  = self;
 
 	template <template <typename> class Predicate, typename NewType> using replace_if = self;
@@ -203,6 +205,12 @@ private:
 		using result = type_list<Type, Types..., NewTypes...>;
 	};
 
+	template <typename I, typename ResultList, typename Separator>
+	struct split_f: types_pack< meta_if<std::is_same_v<I, Separator>, 
+		typename ResultList::push<type_list<>>, 
+		typename ResultList::set<ResultList::length - 1, typename ResultList::back::template push<I> > 
+	>, Separator> {};
+
 
 public:
 
@@ -232,11 +240,17 @@ public:
 
 	template <size_t index, typename NewType>         using set      = typename set_impl<0, index, NewType, head, type_list<>>::result;
 
+	// template <typename Iterator, typename NewType>    using set_by_itr = for_range<begin, end, set_by_itr_f, types_pack<> >
+
 	template <typename Target>                        using contains = meta_bool<std::is_same<Target, Type>::value || (std::is_same<Target, Types>::value || ...)>;
 
 	template <template <typename...> class Function>  using for_each = type_list<Function<Type>, Function<Types>...>;
 
 	template <template <typename...> class Container> using cast     = Container<Type, Types...>;
+
+	// template <size_t start, size_t end = -1>          using slice    =
+
+	template <typename Separator>                     using split    = typename for_range<begin, end, split_f, types_pack<type_list<type_list<>>, Separator>>::first;
 
 	template <typename OldType, typename NewType>     using replace  = type_list< meta_if<std::is_same<OldType, Type>::value, NewType, Type>, meta_if<std::is_same<OldType, Types>::value, NewType, Types>... >;
 
@@ -321,6 +335,8 @@ public:
 	template <template <value_t...> class Function>   using for_each  = self;
 
 	template <template <value_t...> class Container>  using cast      = Container<>;
+
+	template <value_t separator>                      using split    = self;
 
 	template <value_t old_value, value_t new_value>   using replace   = self;
 
@@ -408,6 +424,11 @@ private:
 	template <value_t i, typename CurrentList, typename Target>
 	struct erase_f: types_pack<meta_if<i == Target::value, CurrentList, typename CurrentList::template push<i>>, Target> {};
 
+	template <value_t i, typename ResultList, typename SeparatorWarpper>
+	struct split_f: types_pack<meta_if<i == SeparatorWarpper::value, 
+		typename ResultList::push<value_list<value_t>>, 
+		typename ResultList::set<ResultList::length - 1, typename ResultList::back::template push<i> > 
+	>, SeparatorWarpper> {};
 
 public:	
 	using shift    = value_list<value_t, values...>;
@@ -430,20 +451,22 @@ public:
 
 	template <size_t index, value_t new_value, value_t... new_values>  using insert = typename insert_impl<0, index, (index >= length), head, value_list<value_t>, new_value, new_values...>::result;
 
-	template <typename NewList, typename... NewLists> using concat     = typename concat_impl<NewList, NewLists...>::result;
+	template <typename NewList, typename... NewLists>   using concat     = typename concat_impl<NewList, NewLists...>::result;
 
 	static constexpr value_t get(size_t index) noexcept{ return index >= length ? data[length - 1] : data[index]; }
 	
-	template <size_t index, value_t new_value>        using set        = typename set_impl<0, index, new_value, head, value_list<value_t>>::result;
+	template <size_t index, value_t new_value>          using set        = typename set_impl<0, index, new_value, head, value_list<value_t>>::result;
 
-	template <value_t target>                         using contains   = meta_bool<(target == value) || ((target == values) || ...)>;
+	template <value_t target>                           using contains   = meta_bool<(target == value) || ((target == values) || ...)>;
 
 	//requires Function<val>::result
-	template <template <value_t...> class Function>   using for_each   = value_list<value_t, Function<value>::value, Function<values>::value...>;
+	template <template <value_t...> class Function>     using for_each   = value_list<value_t, Function<value>::value, Function<values>::value...>;
 
-	template <template <value_t...> class Container>  using cast       = Container<value, values...>;
+	template <template <value_t...> class Container>    using cast       = Container<value, values...>;
 
-	template <value_t old_value, value_t new_value>   using replace    = value_list<value_t, (old_value == value ? new_value : value), (old_value == values ? new_value : values)... >;
+	template <value_t separator>                        using split    = for_value_range<begin, end, split_f, types_pack<type_list<value_list<value_t>>, meta<separator>>>::first;
+
+	template <value_t old_value, value_t new_value>     using replace    = value_list<value_t, (old_value == value ? new_value : value), (old_value == values ? new_value : values)... >;
 
 	template <template <value_t> class Predicate, value_t new_value> using replace_if = value_list<value_t, (Predicate<value>::value ? new_value : value), (Predicate<values>::value ? new_value : values)... >;
 
