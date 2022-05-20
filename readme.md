@@ -1,1 +1,2 @@
-最低版本: C++17.
+Lowest language compling standard: C++17 
+最低编译标准: C++17.
