@@ -34,7 +34,11 @@ using sliced_list6 = list6::slice<size_t(-3), size_t(-1)>;
 
 using sliced_vlist1 = vlist1::slice<3>;
 
-debug_type<sliced_vlist1>;
+using reversed_list6 = list6::reverse;
+
+using reversed_vlist1 = vlist1::reverse;
+
+debug_type<reversed_vlist1>;
 
 
 int main() {

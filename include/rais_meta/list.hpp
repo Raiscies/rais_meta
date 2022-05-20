@@ -84,6 +84,8 @@ public:
 
 	using end     = type_node<>;
 
+	using reverse = self;
+
 	template <size_t shift_count = 1>                 using shift    = self;
 
 	template <size_t pop_count = 1>                   using pop      = self;
@@ -213,6 +215,9 @@ private:
 		typename ResultList::set<ResultList::length - 1, typename ResultList::back::template push<I> > 
 	>, Separator> {};
 
+	template <typename I, typename ResultList>
+	struct reverse_f: types_pack<typename ResultList::unshift<I>> {};
+
 public:
 
 	using begin    = head;
@@ -266,6 +271,8 @@ public:
 	using front    = Type;
 
 	using back     = get<length - 1>;
+
+	using reverse  = for_range<begin, end, reverse_f, types_pack<type_list<>>>::first;
 
 
 	template <typename ElementType> 
@@ -322,6 +329,8 @@ public:
 	using begin    = value_node<value_t>;
 
 	using end      = value_node<value_t>;
+
+	using reverse  = self;
 
 	template <size_t shift_count = 1>                   using shift    = self;
 
@@ -446,12 +455,17 @@ private:
 		typename ResultList::set<ResultList::length - 1, typename ResultList::back::template push<i> > 
 	>, SeparatorWarpper> {};
 
+	template <value_t i, typename ResultList>
+	struct reverse_f: types_pack<typename ResultList::unshift<i>> {};
+
 public:	
 
 
 	using begin    = head;
 
 	using end      = value_node<value_t>;
+
+	using reverse  = typename for_value_range<begin, end, reverse_f, types_pack<value_list<value_t>>>::first;
 
 	template <size_t shift_count = 1>                   using shift    = meta_if<shift_count == 0, self, typename value_list<value_t, values...>::shift<shift_count - 1>>;
 
