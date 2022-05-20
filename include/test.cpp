@@ -30,7 +30,11 @@ using splited_list6 = list6::split<void>;
 
 using splited_vlist1 = vlist1::split<' '>;
 
-debug_type<splited_vlist1>;
+using sliced_list6 = list6::slice<size_t(-3), size_t(-1)>;
+
+using sliced_vlist1 = vlist1::slice<3>;
+
+debug_type<sliced_vlist1>;
 
 
 int main() {
@@ -39,3 +43,6 @@ int main() {
 	// list4 l;
 	return 0;
 }
+
+
+

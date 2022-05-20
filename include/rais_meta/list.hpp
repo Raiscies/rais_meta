@@ -1,8 +1,8 @@
 #ifndef RAIS_META_LIST_HPP
 #define RAIS_META_LIST_HPP
 
-#include <rais_meta/base.hpp>
 #include <tuple>
+#include <rais_meta/base.hpp>
 
 namespace rais {
 namespace meta {
@@ -108,11 +108,13 @@ public:
 
 	template <template <typename...> class Container> using cast     = Container<>;
 
-	template <typename Separator>                     using split    = self;
-
 	template <typename OldType, typename NewType>     using replace  = self;
 
 	template <template <typename> class Predicate, typename NewType> using replace_if = self;
+
+	template <typename Separator>                     using split    = self;
+
+	template <size_t from, size_t to>                 using slice    = self;
 
 	template <typename ElementType> 
 	static constexpr ElementType* to_array = nullptr;
@@ -211,7 +213,6 @@ private:
 		typename ResultList::set<ResultList::length - 1, typename ResultList::back::template push<I> > 
 	>, Separator> {};
 
-
 public:
 
 	using begin    = head;
@@ -248,13 +249,19 @@ public:
 
 	template <template <typename...> class Container> using cast     = Container<Type, Types...>;
 
-	// template <size_t start, size_t end = -1>          using slice    =
-
-	template <typename Separator>                     using split    = typename for_range<begin, end, split_f, types_pack<type_list<type_list<>>, Separator>>::first;
-
 	template <typename OldType, typename NewType>     using replace  = type_list< meta_if<std::is_same<OldType, Type>::value, NewType, Type>, meta_if<std::is_same<OldType, Types>::value, NewType, Types>... >;
 
 	template <template <typename> class Predicate, typename NewType> using replace_if = type_list< meta_if< Predicate<Type>::value, NewType, Type>, meta_if< Predicate<Types>::value, NewType, Types>... >;
+
+	template <typename Separator>                     using split    = typename for_range<begin, end, split_f, types_pack<type_list<type_list<>>, Separator>>::first;
+
+	//slice range: [from, to)
+	//supports negative index like -1, but need to cast to size_t type before using: size_t(-1)
+	template <size_t from, size_t to = length>        using slice    = meta_if<(from < to), 
+			typename pop<(to > length ? size_t(-1) - to + 1 : length - to)>::
+			       shift<(from > length ? length - size_t(-1) + from - 1 : from)>,
+			type_list<>
+		>;
 
 	using front    = Type;
 
@@ -316,6 +323,10 @@ public:
 
 	using end      = value_node<value_t>;
 
+	template <size_t shift_count = 1>                   using shift    = self;
+
+	template <size_t pop_count = 1>                     using pop      = self;
+
 	template <value_t new_value, value_t... new_values> using push    = value_list<value_t, new_value, new_values...>;
  
 	template <value_t new_value, value_t... new_values> using unshift = push<new_value, new_values...>;
@@ -336,11 +347,13 @@ public:
 
 	template <template <value_t...> class Container>  using cast      = Container<>;
 
-	template <value_t separator>                      using split    = self;
-
 	template <value_t old_value, value_t new_value>   using replace   = self;
 
 	template <template <value_t> class Predicate, value_t new_value> using replace_if = self;
+
+	template <value_t separator>                      using split    = self;
+
+	template <size_t from, size_t to = length>        using slice    = self;
  
 	static constexpr value_t* to_array = nullptr;
 
@@ -404,17 +417,20 @@ private:
 		using result = typename ResultList::template push<new_value>::template concat< to_list<typename CurrentNode::next> >;
 	};
 
-	template <typename CurrentList, value_t...>
+	template <size_t pop_count, typename CurrentList, value_t... current_values>
 	struct pop_impl {
-		using result = value_list<value_t>;
+		using result = CurrentList;
 	};
-	template <typename CurrentList, value_t current_value, value_t... current_values>
-	struct pop_impl<CurrentList, current_value, current_values...> {
-		using result = meta_if<sizeof...(current_values) == 0, 
-			CurrentList, 
-			typename pop_impl<typename CurrentList::template push<current_value>, current_values...>::result
+	template <size_t pop_count, typename CurrentList, value_t current_value, value_t... current_values>
+	struct pop_impl<pop_count, CurrentList, current_value, current_values...> {
+		using result = meta_if<pop_count == 0, 
+			self
+		>::template elif< sizeof...(current_values) == pop_count,
+			typename CurrentList::template push<current_value>, 
+			typename pop_impl<pop_count, typename CurrentList::template push<current_value>, current_values...>::result
 		>;
 	};
+
 	template <value_t i, typename CurrentList, typename PredicateWarpper> 
 	struct erase_if_f: types_pack<meta_if<PredicateWarpper::template apply<i>::value, CurrentList, typename CurrentList::template push<i> >, PredicateWarpper> {};
 
@@ -431,13 +447,15 @@ private:
 	>, SeparatorWarpper> {};
 
 public:	
-	using shift    = value_list<value_t, values...>;
 
-	using pop      = typename pop_impl<value_list<value_t>, value, values...>::result;
 
 	using begin    = head;
 
 	using end      = value_node<value_t>;
+
+	template <size_t shift_count = 1>                   using shift    = meta_if<shift_count == 0, self, typename value_list<value_t, values...>::shift<shift_count - 1>>;
+
+	template <size_t pop_count = 1>                     using pop      = typename pop_impl<pop_count, value_list<value_t>, value, values...>::result;
 
 	template <value_t new_value, value_t... new_values> using push     = value_list<value_t, value, values..., new_value, new_values...>;
  
@@ -464,11 +482,20 @@ public:
 
 	template <template <value_t...> class Container>    using cast       = Container<value, values...>;
 
-	template <value_t separator>                        using split    = for_value_range<begin, end, split_f, types_pack<type_list<value_list<value_t>>, meta<separator>>>::first;
-
 	template <value_t old_value, value_t new_value>     using replace    = value_list<value_t, (old_value == value ? new_value : value), (old_value == values ? new_value : values)... >;
 
 	template <template <value_t> class Predicate, value_t new_value> using replace_if = value_list<value_t, (Predicate<value>::value ? new_value : value), (Predicate<values>::value ? new_value : values)... >;
+
+	template <value_t separator>                        using split    = for_value_range<begin, end, split_f, types_pack<type_list<value_list<value_t>>, meta<separator>>>::first;
+
+	//slice range: [from, to)
+	//supports negative index like -1, but need to cast to size_t type before using: size_t(-1)
+	template <size_t from, size_t to = length>        using slice    = meta_if<(from < to), 
+			typename pop<(to > length ? size_t(-1) - to + 1 : length - to)>::
+			       shift<(from > length ? length - size_t(-1) + from - 1 : from)>,
+			value_list<value_t>
+		>;
+
 
 	static constexpr value_t front = value;
 
