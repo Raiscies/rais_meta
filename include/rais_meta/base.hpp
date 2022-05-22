@@ -319,6 +319,7 @@ private:
 
 	template <typename T>
 	using invoke_switch = invoke_switch_impl<T>;
+
 };
 
 } //namespace meta_args_detail

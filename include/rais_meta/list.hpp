@@ -218,6 +218,9 @@ private:
 	template <typename I, typename ResultList>
 	struct reverse_f: types_pack<typename ResultList::unshift<I>> {};
 
+	template <typename>
+	struct reverse_impl: for_range<head, type_node<>, reverse_f, types_pack<type_list<>>> {};
+
 public:
 
 	using begin    = head;
@@ -260,6 +263,8 @@ public:
 
 	template <typename Separator>                     using split    = typename for_range<begin, end, split_f, types_pack<type_list<type_list<>>, Separator>>::first;
 
+	template <typename any_type = meta_null>          using reverse  = reverse_impl<any_type>::first;
+	
 	//slice range: [from, to)
 	//supports negative index like -1, but need to cast to size_t type before using: size_t(-1)
 	template <size_t from, size_t to = length>        using slice    = meta_if<(from < to), 
@@ -272,7 +277,6 @@ public:
 
 	using back     = get<length - 1>;
 
-	using reverse  = for_range<begin, end, reverse_f, types_pack<type_list<>>>::first;
 
 
 	template <typename ElementType> 
@@ -457,6 +461,10 @@ private:
 
 	template <value_t i, typename ResultList>
 	struct reverse_f: types_pack<typename ResultList::unshift<i>> {};
+	
+	template <typename>
+	struct reverse_impl: for_value_range<head, value_node<value_t>, reverse_f, types_pack<value_list<value_t>>>{};
+
 
 public:	
 
@@ -465,7 +473,7 @@ public:
 
 	using end      = value_node<value_t>;
 
-	using reverse  = typename for_value_range<begin, end, reverse_f, types_pack<value_list<value_t>>>::first;
+	template <typename any_type = meta_null>            using reverse  = reverse_impl<any_type>::first;
 
 	template <size_t shift_count = 1>                   using shift    = meta_if<shift_count == 0, self, typename value_list<value_t, values...>::shift<shift_count - 1>>;
 
@@ -521,6 +529,7 @@ public:
 
 
 };
+
 
 
 
