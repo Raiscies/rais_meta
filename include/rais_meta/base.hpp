@@ -327,35 +327,63 @@ private:
 template <typename... Args>
 using meta_args = typename meta_args_detail::meta_args_impl<Args...>;
 
+
 //loop statement
 namespace meta_while_detail {
 
+struct base_break_loop {};
+
+template <typename ContextPack>
+struct break_loop: base_break_loop { 
+	using pack = ContextPack; 
+};
+
+template <typename ContextPack>
+using is_break_loop_impl = meta_bool<std::is_base_of_v<base_break_loop, ContextPack>>; 
 
 template <template <typename...> class, template <typename...> class, typename>
 struct meta_while_impl_expand_pack;
 
-template <bool condition, template <typename...> class Predicate, template <typename...> class Function, template <typename...> class ContextPackTempl, typename... Context>
-struct meta_while_impl {
+template <bool condition, bool is_break_loop, template <typename...> class Predicate, template <typename...> class Function, template <typename...> class ContextPackTempl, typename... Context>
+struct meta_while_impl {};
+template <template <typename...> class Predicate, template <typename...> class Function, template <typename...> class ContextPackTempl, typename... Context>
+struct meta_while_impl<true, false, Predicate, Function, ContextPackTempl, Context...> {
 	//if condition == true
 	using result = typename meta_while_impl_expand_pack<Predicate, Function, Function<Context...>>::result;
 };
 template <template <typename...> class Predicate, template <typename...> class Function, template <typename...> class ContextPackTempl, typename... Context>
-struct meta_while_impl<false, Predicate, Function, ContextPackTempl, Context...> {
+struct meta_while_impl<false, false, Predicate, Function, ContextPackTempl, Context...> {
 	//if condition == false
 	using result = ContextPackTempl<Context...>;
+};
+template <template <typename...> class Predicate, template <typename...> class Function, template <typename> class BreakLoop, typename... ContextPack>
+struct meta_while_impl<true, true, Predicate, Function, BreakLoop, ContextPack...> {
+	//break loop
+	using result = typename BreakLoop<ContextPack...>::pack;
+};
+template <template <typename...> class Predicate, template <typename...> class Function, template <typename> class BreakLoop, typename... ContextPack>
+struct meta_while_impl<false, true, Predicate, Function, BreakLoop, ContextPack...> {
+	//break loop anyway
+	using result = typename BreakLoop<ContextPack...>::pack;
 };
 
 template <template <typename...> class Predicate, template <typename...> class Function, typename ContextPack>
 struct meta_while_impl_expand_pack {};
 template <template <typename...> class Predicate, template <typename...> class Function, template <typename...> class ContextPackTempl, typename... Context>
 struct meta_while_impl_expand_pack<Predicate, Function, ContextPackTempl<Context...>> {
-	using result = typename meta_while_impl<Predicate<Context...>::value, Predicate, Function, ContextPackTempl, Context...>::result;	
+	using result = typename meta_while_impl<Predicate<Context...>::value, is_break_loop_impl<ContextPackTempl<Context...>>::value, Predicate, Function, ContextPackTempl, Context...>::result;	
 };
 
 } // namespace meta_while_detail
 template <template <typename...> class Predicate, template <typename...> class Function, typename InitContextPack>
 using meta_while = typename meta_while_detail::meta_while_impl_expand_pack<Predicate, Function, InitContextPack>::result;
 
+template <typename ContextPack>
+using break_loop = meta_while_detail::break_loop<ContextPack>;
+
+
+template <typename Pack>
+using is_break_loop = meta_while_detail::is_break_loop_impl<Pack>;
 
 //template traits
 namespace is_same_template_detail {
@@ -394,6 +422,7 @@ using is_same_template = typename is_same_template_detail::is_same_template_impl
 
 template <typename T, template <typename...> class Templ> 
 using is_instantiated_from = typename is_instantiated_from_detail::is_instantiated_from_impl<T, Templ>::result;
+
 
 
 } // namespace meta
