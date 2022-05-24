@@ -23,14 +23,23 @@ struct type_node<This, Nexts...> {
 
 namespace for_range_detail {
 
+template <bool is_break_loop, typename ContextPack>
+struct remove_break_warp_impl{ using result = ContextPack::pack; };
+template <typename ContextPack>
+struct remove_break_warp_impl<false, ContextPack> { using result = ContextPack; };
+template <typename ContextPack>
+using remove_break_warp = typename remove_break_warp_impl<is_break_loop<ContextPack>::value, ContextPack>::result;
+
+
 template <typename ContextPack, typename Iterator,typename IteratorEnd, typename FunctionWarpper>
-using for_range_predicate = typename std::negation<std::is_same<Iterator, IteratorEnd>>;
+using for_range_predicate = meta_bool<!is_break_loop<ContextPack>::value and !std::is_same_v<Iterator, IteratorEnd>>;
 
 template <typename ContextPack, typename Iterator, typename IteratorEnd, typename FunctionWarpper>
 using for_range_function = types_pack<typename FunctionWarpper::unroll_apply<typename ContextPack::template unshift<typename Iterator::type>>, typename Iterator::next, IteratorEnd, FunctionWarpper>;
 
+
 template <typename IteratorBegin, typename IteratorEnd, template <typename...> class Function, typename InitContextPack>
-using for_range_impl = typename meta_while<for_range_predicate, for_range_function, types_pack<InitContextPack, IteratorBegin, IteratorEnd, function_warpper<Function>>>::first;
+using for_range_impl = remove_break_warp<typename meta_while<for_range_predicate, for_range_function, types_pack<InitContextPack, IteratorBegin, IteratorEnd, function_warpper<Function>>>::first>;
 
 //for_value_range_detail
 
@@ -38,7 +47,7 @@ template <typename ContextPack, typename Iterator, typename IteratorEnd, typenam
 using for_value_range_function = types_pack<typename FunctionWarpper::template unroll_apply<typename ContextPack::template unshift<meta<Iterator::value>>>, typename Iterator::next, IteratorEnd, FunctionWarpper>;
 
 template <typename IteratorBegin, typename IteratorEnd, template <IteratorBegin::value_t, typename...> class Function, typename InitContextPack>
-using for_value_range_impl = typename meta_while<for_range_predicate, for_value_range_function, types_pack<InitContextPack, IteratorBegin, IteratorEnd, typename nontype_param<typename IteratorBegin::value_t>::function_warpper<Function>>>::first;
+using for_value_range_impl = remove_break_warp<typename meta_while<for_range_predicate, for_value_range_function, types_pack<InitContextPack, IteratorBegin, IteratorEnd, typename nontype_param<typename IteratorBegin::value_t>::function_warpper<Function>> >::first>;
 
 
 } // namespace for_range_detail
@@ -105,6 +114,10 @@ public:
 	template <typename NewList, typename... NewLists> using concat   = typename concat_impl<NewList, NewLists...>::result;
 
 	template <typename Target>                        using contains = meta_bool<false>;
+
+	template <template <typename> class Predicate>    using find_if  = type_node<>;
+
+	template <typename Target>                        using find     = type_node<>;
 
 	template <template <typename...> class Function>  using for_each = self;
 
@@ -221,6 +234,15 @@ private:
 	template <typename>
 	struct reverse_impl: for_range<head, type_node<>, reverse_f, types_pack<type_list<>>> {};
 
+	template <typename I, typename CurrentNode, typename PredicateWarpper>
+	struct find_if_f: meta_if<PredicateWarpper::template apply<I>::value, break_loop<types_pack<CurrentNode, PredicateWarpper>>, types_pack<typename CurrentNode::next, PredicateWarpper> > {};
+
+	template <typename Target>
+	struct find_pred {
+		template <typename I>
+		struct f: std::is_same<Target, I> {};
+	};
+
 public:
 
 	using begin    = head;
@@ -260,6 +282,10 @@ public:
 	template <typename OldType, typename NewType>     using replace  = type_list< meta_if<std::is_same<OldType, Type>::value, NewType, Type>, meta_if<std::is_same<OldType, Types>::value, NewType, Types>... >;
 
 	template <template <typename> class Predicate, typename NewType> using replace_if = type_list< meta_if< Predicate<Type>::value, NewType, Type>, meta_if< Predicate<Types>::value, NewType, Types>... >;
+
+	template <template <typename> class Predicate>    using find_if  = typename for_range<begin, end, find_if_f, types_pack<head, function_warpper<Predicate>>>::first;
+
+	template <typename Target>                        using find     = find_if<find_pred<Target>::template f>;
 
 	template <typename Separator>                     using split    = typename for_range<begin, end, split_f, types_pack<type_list<type_list<>>, Separator>>::first;
 
@@ -355,6 +381,10 @@ public:
 	template <typename NewList, typename... NewLists> using concat    = typename concat_impl<NewList, NewLists...>::result;
 
 	template <value_t target>                         using contains  = meta_bool<false>;
+
+	template <template <value_t> class Predicate>     using find_if   = value_node<value_t>;
+
+	template <value_t target>                         using find      = value_node<value_t>;
 
 	template <template <value_t...> class Function>   using for_each  = self;
 
@@ -464,7 +494,15 @@ private:
 	
 	template <typename>
 	struct reverse_impl: for_value_range<head, value_node<value_t>, reverse_f, types_pack<value_list<value_t>>>{};
+	
+	template <value_t i, typename CurrentNode, typename PredicateWarpper>
+	struct find_if_f: meta_if<PredicateWarpper::template apply<i>::value, break_loop<types_pack<CurrentNode, PredicateWarpper>>, types_pack<typename CurrentNode::next, PredicateWarpper> > {};
 
+	template <value_t target>
+	struct find_pred {
+		template <value_t i>
+		struct f: meta_bool<target == i> {};
+	};
 
 public:	
 
@@ -499,6 +537,10 @@ public:
 
 	template <value_t target>                           using contains   = meta_bool<(target == value) || ((target == values) || ...)>;
 
+	template <template <value_t> class Predicate>       using find_if    = typename for_value_range<begin, end, find_if_f, types_pack<head, typename nontype_param<value_t>::function_warpper<Predicate>>>::first;
+
+	template <value_t target>                           using find       = find_if<find_pred<target>::template f>;
+
 	//requires Function<val>::result
 	template <template <value_t...> class Function>     using for_each   = value_list<value_t, Function<value>::value, Function<values>::value...>;
 
@@ -530,6 +572,10 @@ public:
 
 };
 
+template <typename CharT, CharT... chars>
+struct meta_string: value_list<CharT, chars..., CharT('\0')> {
+
+};
 
 
 
