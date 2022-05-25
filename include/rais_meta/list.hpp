@@ -93,7 +93,7 @@ public:
 
 	using end     = type_node<>;
 
-	using reverse = self;
+	template <typename any_type = meta_null>          using reverse = self;
 
 	template <size_t shift_count = 1>                 using shift    = self;
 
@@ -360,17 +360,17 @@ public:
 
 	using end      = value_node<value_t>;
 
-	using reverse  = self;
+	template <typename any_type = meta_null>            using reverse  = self;
 
-	template <size_t shift_count = 1>                   using shift    = self;
+	template <size_t shift_count = 1>                   using shift   = self;
 
-	template <size_t pop_count = 1>                     using pop      = self;
+	template <size_t pop_count = 1>                     using pop     = self;
 
 	template <value_t new_value, value_t... new_values> using push    = value_list<value_t, new_value, new_values...>;
  
 	template <value_t new_value, value_t... new_values> using unshift = push<new_value, new_values...>;
 	
-	template <value_t target>                           using erase    = value_list<value_t>;
+	template <value_t target>                           using erase   = value_list<value_t>;
 
 	template <size_t index>                             using erase_by_index = value_list<value_t>;
 
@@ -394,9 +394,9 @@ public:
 
 	template <template <value_t> class Predicate, value_t new_value> using replace_if = self;
 
-	template <value_t separator>                      using split    = self;
+	template <value_t separator>                      using split     = self;
 
-	template <size_t from, size_t to = length>        using slice    = self;
+	template <size_t from, size_t to = length>        using slice     = self;
  
 	static constexpr value_t* to_array = nullptr;
 
