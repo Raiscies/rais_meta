@@ -69,6 +69,109 @@ struct meta_bool: meta_object<bool, val> {
 
 };
 
+//operators
+namespace op {
+
+namespace exchange_value_details {
+
+template <typename Value>
+struct exchange_value_impl {};
+
+template <typename T, T v, template <typename, T> class Templ>
+struct exchange_value_impl<Templ<T, v>> {
+	template <T new_val>
+	using result = Templ<T, new_val>;
+
+};
+
+} //namespace exchange_value_details
+
+template <typename Value, auto new_val>
+using exchange_val = typename exchange_value_details::exchange_value_impl<Value>::result<new_val>;
+
+template <typename Value, typename... Values>
+using add = exchange_val<Value, (Value::value + ... + Values::value)>;
+template <typename Value, typename... Values>
+using sub = exchange_val<Value, (Value::value - ... - Values::value)>;
+template <typename Value, typename... Values>
+using mul = exchange_val<Value, (Value::value * ... * Values::value)>;
+template <typename Value, typename... Values>
+using div = exchange_val<Value, (Value::value / ... / Values::value)>;
+template <typename Value, typename... Values>
+using mod = exchange_val<Value, (Value::value % ... % Values::value)>;
+
+template <typename Value, typename... Values>
+using bit_and = exchange_val<Value, (Value::value & ... & Values::value)>;
+template <typename Value, typename... Values>
+using bit_or  = exchange_val<Value, (Value::value | ... | Values::value)>;
+template <typename Value, typename... Values>
+using bit_xor = exchange_val<Value, (Value::value ^ ... ^ Values::value)>;
+template <typename Value, typename... Values>
+using bit_lshift  = exchange_val<Value, (Value::value << ... << Values::value)>;
+template <typename Value, typename... Values>
+using bit_rshift  = exchange_val<Value, (Value::value >> ... >> Values::value)>;
+
+template <typename Value, typename... Values>
+using logic_and = exchange_val<Value, (Value::value && ... && Values::value)>;
+template <typename Value, typename... Values>
+using logic_or  = exchange_val<Value, (Value::value || ... || Values::value)>;
+
+template <typename Value>
+using inc = exchange_val<Value, Value::value + 1>;
+template <typename Value>
+using dec = exchange_val<Value, Value::value - 1>;
+template <typename Value>
+using neg       = exchange_val<Value, -Value::value>;
+template <typename Value>
+using logic_not = exchange_val<Value, !Value::value>;
+template <typename Value>
+using bit_compl = exchange_val<Value, ~Value::value>;
+
+//comparators
+namespace comparators_detail {
+
+#define R_CREATE_COMPARATOR(name, op)   \
+	template <typename ValueT, ValueT... vals> \
+	struct name##_impl {                \
+		template <ValueT v1, ValueT v2, ValueT... values> \
+		struct impl {                   \
+			static constexpr bool result = ((v1 op v2) && impl<v2, values...>::result); \ 
+		};                              \
+		template <ValueT v1, ValueT v2> \
+		struct impl<v1, v2> {           \
+			static constexpr bool result = (v1 op v2); \
+		};                              \
+		static constexpr bool result = impl<vals...>::result; \
+	};
+
+R_CREATE_COMPARATOR(less,           <)
+R_CREATE_COMPARATOR(greater,        >)
+R_CREATE_COMPARATOR(less_equal,    <=)
+R_CREATE_COMPARATOR(greater_equal, >=)
+R_CREATE_COMPARATOR(equal,         ==)
+R_CREATE_COMPARATOR(not_equal,     !=) //note: it would compare the adjant values only
+
+#undef R_CREATE_COMPARATOR
+} //namespace comparators_detail
+
+template <typename Value, typename... Values>
+using less          = meta_bool<comparators_detail::less_impl         <decltype(Value::value), Value::value, Values::value...>::result>;
+template <typename Value, typename... Values>
+using greater       = meta_bool<comparators_detail::greater_impl      <decltype(Value::value), Value::value, Values::value...>::result>;
+template <typename Value, typename... Values>
+using less_equal    = meta_bool<comparators_detail::less_equal_impl   <decltype(Value::value), Value::value, Values::value...>::result>;
+template <typename Value, typename... Values>
+using greater_equal = meta_bool<comparators_detail::greater_equal_impl<decltype(Value::value), Value::value, Values::value...>::result>;
+template <typename Value, typename... Values>
+using equal         = meta_bool<comparators_detail::equal_impl        <decltype(Value::value), Value::value, Values::value...>::result>;
+template <typename Value, typename... Values>
+using not_equal     = meta_bool<comparators_detail::not_equal_impl    <decltype(Value::value), Value::value, Values::value...>::result>;
+
+
+} //namespace op
+
+
+
 template <char Value = '\0'>
 using meta_char = meta_object<char, Value>;
 template <signed char Value = 0>
