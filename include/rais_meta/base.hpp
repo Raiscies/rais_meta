@@ -50,7 +50,7 @@ struct meta_integer: meta_object<T, val> {
 	template <typename Val, typename... Vals>
 	using bit_xor = meta_integer<type, ((value ^ Val::value) ^ ... ^ Vals::value)>;
 
-	using bit_flip = meta_integer<T, ~value>;
+	using bit_compl = meta_integer<T, ~value>;
 	
 };
 
