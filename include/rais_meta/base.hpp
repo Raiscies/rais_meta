@@ -21,9 +21,6 @@ struct meta_object {
 
 };
 
-template <auto value> 
-using meta = meta_object<decltype(value), value>;
-
 template <typename T, T val> 
 struct meta_integer: meta_object<T, val> {
 	using typename meta_object<T, val>::type;
@@ -44,11 +41,15 @@ struct meta_integer: meta_object<T, val> {
 	using dec = meta_integer<T, value - 1>;
 	
 	template <typename Val, typename... Vals>
-	using bit_and = meta_integer<type, ((value & Val::value) & ... & Vals::value)>;
+	using bit_and    = meta_integer<type, ((value & Val::value) & ... & Vals::value)>;
 	template <typename Val, typename... Vals>
-	using bit_or  = meta_integer<type, ((value | Val::value) | ... | Vals::value)>;
+	using bit_or     = meta_integer<type, ((value | Val::value) | ... | Vals::value)>;
 	template <typename Val, typename... Vals>
-	using bit_xor = meta_integer<type, ((value ^ Val::value) ^ ... ^ Vals::value)>;
+	using bit_xor    = meta_integer<type, ((value ^ Val::value) ^ ... ^ Vals::value)>;
+	template <typename Val, typename... Vals>
+	using bit_lshift = meta_integer<type, ((value << Val::value) << ... << Values::value)>;
+	template <typename Val, typename... Vals>
+	using bit_rshift = meta_integer<type, ((value >> Val::value) >> ... >> Values::value)>;
 
 	using bit_compl = meta_integer<T, ~value>;
 	
@@ -170,37 +171,60 @@ using not_equal     = meta_bool<comparators_detail::not_equal_impl    <decltype(
 
 } //namespace op
 
+namespace auto_meta_detail {
 
+template<auto value, bool is_integral, bool is_bool>
+struct auto_meta_impl {
+	//any type
+	using result = meta_object<decltype(value), value>;
+};
+template<auto value>
+struct auto_meta_impl<value, true, false> {
+	//is integer type
+	using result = meta_integer<decltype(value), value>;
+};
+template<auto value>
+struct auto_meta_impl<value, true, true> {
+	//is boolean type
+	using result = meta_bool<value>;
+};
+
+
+} //namespace auto_meta_detail
+ 
+//auto meta type
+template <auto value> 
+using meta = typename auto_meta_detail::auto_meta_impl<value, std::is_integral_v<decltype(value)>, std::is_same_v<bool, std::remove_cv_t<decltype(value)>>>::result;
 
 template <char Value = '\0'>
-using meta_char = meta_object<char, Value>;
+using meta_char = meta_integer<char, Value>;
 template <signed char Value = 0>
-using meta_schar = meta_object<signed char, Value>;
+using meta_schar = meta_integer<signed char, Value>;
 template <unsigned char Value = 0>
-using meta_uchar = meta_object<unsigned char, Value>;
+using meta_uchar = meta_integer<unsigned char, Value>;
 
 template <short Value = 0>
-using meta_short = meta_object<short, Value>;
+using meta_short = meta_integer<short, Value>;
 template <unsigned short Value = 0>
-using meta_ushort = meta_object<unsigned short, Value>;
+using meta_ushort = meta_integer<unsigned short, Value>;
 
 template <int Value = 0>
-using meta_int = meta_object<int, Value>;
+using meta_int = meta_integer<int, Value>;
 template <unsigned int Value = 0>
-using meta_uint = meta_object<unsigned int, Value>;
+using meta_uint = meta_integer<unsigned int, Value>;
 
 template <long Value = 0L>
-using meta_long = meta_object<long, Value>;
+using meta_long = meta_integer<long, Value>;
 template <unsigned long Value = 0UL>
-using meta_ulong = meta_object<unsigned long, Value>;
+using meta_ulong = meta_integer<unsigned long, Value>;
 
 template <long long Value = 0LL>
-using meta_llong = meta_object<long long, Value>;
+using meta_llong = meta_integer<long long, Value>;
 template <unsigned long long Value = 0ULL>
-using meta_ullong = meta_object<unsigned long long, Value>;
+using meta_ullong = meta_integer<unsigned long long, Value>;
 
 template <size_t val>
-using meta_size_t = meta_object<size_t, val>;
+using meta_size_t = meta_integer<size_t, val>;
 
 
 template <typename... Ts>
@@ -477,9 +501,17 @@ struct meta_while_impl_expand_pack<Predicate, Function, ContextPackTempl<Context
 	using result = typename meta_while_impl<Predicate<Context...>::value, is_break_loop_impl<ContextPackTempl<Context...>>::value, Predicate, Function, ContextPackTempl, Context...>::result;	
 };
 
+template <typename ContextPack, typename I, typename N, typename FunctionWarpper>
+using for_n_predicate = meta_bool<(I::value < N::value)>;
+template <typename ContextPack, typename I, typename N, typename FunctionWarpper>
+using for_n_function  = types_pack<typename I::inc, N, FunctionWarpper, typename FunctionWarpper::unroll_apply<ContextPack>>;
+
 } // namespace meta_while_detail
 template <template <typename...> class Predicate, template <typename...> class Function, typename InitContextPack>
 using meta_while = typename meta_while_detail::meta_while_impl_expand_pack<Predicate, Function, InitContextPack>::result;
+
+template <size_t n, template <typename...> class Function, typename InitContextPack>
+using for_n = typename meta_while<meta_while_detail::for_n_predicate, for_n_function, types_pack<InitContextPack, meta_size_t<0>, meta<n>, function_warpper<Function>>>::first;
 
 template <typename ContextPack>
 using break_loop = meta_while_detail::break_loop<ContextPack>;
@@ -525,7 +557,6 @@ using is_same_template = typename is_same_template_detail::is_same_template_impl
 
 template <typename T, template <typename...> class Templ> 
 using is_instantiated_from = typename is_instantiated_from_detail::is_instantiated_from_impl<T, Templ>::result;
-
 
 
 } // namespace meta
