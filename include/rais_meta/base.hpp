@@ -47,9 +47,9 @@ struct meta_integer: meta_object<T, val> {
 	template <typename Val, typename... Vals>
 	using bit_xor    = meta_integer<type, ((value ^ Val::value) ^ ... ^ Vals::value)>;
 	template <typename Val, typename... Vals>
-	using bit_lshift = meta_integer<type, ((value << Val::value) << ... << Values::value)>;
+	using bit_lshift = meta_integer<type, ((value << Val::value) << ... << Vals::value)>;
 	template <typename Val, typename... Vals>
-	using bit_rshift = meta_integer<type, ((value >> Val::value) >> ... >> Values::value)>;
+	using bit_rshift = meta_integer<type, ((value >> Val::value) >> ... >> Vals::value)>;
 
 	using bit_compl = meta_integer<T, ~value>;
 	
@@ -262,9 +262,14 @@ private:
 		using result = F<Args...>;
 	};
 
+	template <typename... Args>
+	struct apply_impl {
+		using result = F<Args...>;
+	};
+
 public:
 	template <typename... Args>
-	using apply = F<Args...>;
+	using apply = typename apply_impl<Args...>::result;
 
 	template <typename ArgsPack>
 	using unroll_apply = typename unroll_apply_impl<ArgsPack>::result;
@@ -458,15 +463,23 @@ using meta_args = typename meta_args_detail::meta_args_impl<Args...>;
 //loop statement
 namespace meta_while_detail {
 
-struct base_break_loop {};
+struct break_loop_flag {};
 
 template <typename ContextPack>
-struct break_loop: base_break_loop { 
+struct break_loop: break_loop_flag { 
 	using pack = ContextPack; 
 };
 
 template <typename ContextPack>
-using is_break_loop_impl = meta_bool<std::is_base_of_v<base_break_loop, ContextPack>>; 
+using is_break_loop_impl = meta_bool<std::is_base_of_v<break_loop_flag, ContextPack>>; 
+
+template <bool is_break_loop, typename ContextPack>
+struct remove_break_warp_impl{ using result = typename ContextPack::pack; };
+template <typename ContextPack>
+struct remove_break_warp_impl<false, ContextPack> { using result = ContextPack; };
+template <typename ContextPack>
+using remove_break_warp = typename remove_break_warp_impl<is_break_loop_impl<ContextPack>::value, ContextPack>::result;
+
 
 template <template <typename...> class, template <typename...> class, typename>
 struct meta_while_impl_expand_pack;
@@ -502,23 +515,26 @@ struct meta_while_impl_expand_pack<Predicate, Function, ContextPackTempl<Context
 };
 
 template <typename ContextPack, typename I, typename N, typename FunctionWarpper>
-using for_n_predicate = meta_bool<(I::value < N::value)>;
+using for_n_predicate = meta_bool<(I::value < N::value) and !is_break_loop_impl<ContextPack>::value>;
 template <typename ContextPack, typename I, typename N, typename FunctionWarpper>
-using for_n_function  = types_pack<typename I::inc, N, FunctionWarpper, typename FunctionWarpper::unroll_apply<ContextPack>>;
+using for_n_function  = types_pack<typename FunctionWarpper::unroll_apply<ContextPack>, typename I::inc, N, FunctionWarpper>;
 
 } // namespace meta_while_detail
+template <typename ContextPack>
+using break_loop = meta_while_detail::break_loop<ContextPack>;
+
+template <typename Pack>
+using is_break_loop = meta_while_detail::is_break_loop_impl<Pack>;
+
+template <typename ContextPack>
+using remove_break_warp = meta_while_detail::remove_break_warp<ContextPack>;
+
 template <template <typename...> class Predicate, template <typename...> class Function, typename InitContextPack>
 using meta_while = typename meta_while_detail::meta_while_impl_expand_pack<Predicate, Function, InitContextPack>::result;
 
 template <size_t n, template <typename...> class Function, typename InitContextPack>
-using for_n = typename meta_while<meta_while_detail::for_n_predicate, for_n_function, types_pack<InitContextPack, meta_size_t<0>, meta<n>, function_warpper<Function>>>::first;
+using for_n = remove_break_warp<typename meta_while<meta_while_detail::for_n_predicate, meta_while_detail::for_n_function, types_pack<InitContextPack, meta_size_t<0>, meta_size_t<n>, function_warpper<Function>>>::first>;
 
-template <typename ContextPack>
-using break_loop = meta_while_detail::break_loop<ContextPack>;
-
-
-template <typename Pack>
-using is_break_loop = meta_while_detail::is_break_loop_impl<Pack>;
 
 //template traits
 namespace is_same_template_detail {

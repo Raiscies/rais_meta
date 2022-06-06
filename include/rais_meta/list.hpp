@@ -23,14 +23,6 @@ struct type_node<This, Nexts...> {
 
 namespace for_range_detail {
 
-template <bool is_break_loop, typename ContextPack>
-struct remove_break_warp_impl{ using result = ContextPack::pack; };
-template <typename ContextPack>
-struct remove_break_warp_impl<false, ContextPack> { using result = ContextPack; };
-template <typename ContextPack>
-using remove_break_warp = typename remove_break_warp_impl<is_break_loop<ContextPack>::value, ContextPack>::result;
-
-
 template <typename ContextPack, typename Iterator,typename IteratorEnd, typename FunctionWarpper>
 using for_range_predicate = meta_bool<!is_break_loop<ContextPack>::value and !std::is_same_v<Iterator, IteratorEnd>>;
 
@@ -46,7 +38,7 @@ using for_range_impl = remove_break_warp<typename meta_while<for_range_predicate
 template <typename ContextPack, typename Iterator, typename IteratorEnd, typename FunctionWarpper>
 using for_value_range_function = types_pack<typename FunctionWarpper::template unroll_apply<typename ContextPack::template unshift<meta<Iterator::value>>>, typename Iterator::next, IteratorEnd, FunctionWarpper>;
 
-template <typename IteratorBegin, typename IteratorEnd, template <IteratorBegin::value_t, typename...> class Function, typename InitContextPack>
+template <typename IteratorBegin, typename IteratorEnd, template <typename IteratorBegin::value_t, typename...> class Function, typename InitContextPack>
 using for_value_range_impl = remove_break_warp<typename meta_while<for_range_predicate, for_value_range_function, types_pack<InitContextPack, IteratorBegin, IteratorEnd, typename nontype_param<typename IteratorBegin::value_t>::function_warpper<Function>> >::first>;
 
 
@@ -58,10 +50,10 @@ using for_range = typename for_range_detail::for_range_impl<IteratorBegin, Itera
 template <typename Container, template <typename I, typename... Contexts> class Function, typename InitContextPack>
 using for_container = for_range<typename Container::begin, typename Container::end, Function, InitContextPack>;
 
-template <typename IteratorBegin, typename IteratorEnd, template <IteratorBegin::value_t I, typename... Contexts> class Function, typename InitContextPack>
+template <typename IteratorBegin, typename IteratorEnd, template <typename IteratorBegin::value_t I, typename... Contexts> class Function, typename InitContextPack>
 using for_value_range = typename for_range_detail::for_value_range_impl<IteratorBegin, IteratorEnd, Function, InitContextPack>;
 
-template <typename Container, template <Container::value_t I, typename... Contexts> class Function, typename InitContextPack>
+template <typename Container, template <typename Container::value_t I, typename... Contexts> class Function, typename InitContextPack>
 using for_value_container = for_value_range<typename Container::begin, typename Container::end, Function, InitContextPack>;
 
 template <typename... Types>
@@ -158,7 +150,7 @@ private:
 	};
 	template <size_t pop_count, typename CurrentList, typename T, typename... Ts>
 	struct pop_impl<pop_count, CurrentList, T, Ts...> {
-		using result = meta_if<pop_count == 0, 
+		using result = typename meta_if<pop_count == 0, 
 			self
 		>::template elif< sizeof...(Ts) == pop_count,  
 			typename CurrentList::template push<T>, 
@@ -289,7 +281,7 @@ public:
 
 	template <typename Separator>                     using split    = typename for_range<begin, end, split_f, types_pack<type_list<type_list<>>, Separator>>::first;
 
-	template <typename any_type = meta_null>          using reverse  = reverse_impl<any_type>::first;
+	template <typename any_type = meta_null>          using reverse  = typename reverse_impl<any_type>::first;
 	
 	//slice range: [from, to)
 	//supports negative index like -1, but need to cast to size_t type before using: size_t(-1)
@@ -466,7 +458,7 @@ private:
 	};
 	template <size_t pop_count, typename CurrentList, value_t current_value, value_t... current_values>
 	struct pop_impl<pop_count, CurrentList, current_value, current_values...> {
-		using result = meta_if<pop_count == 0, 
+		using result = typename meta_if<pop_count == 0, 
 			self
 		>::template elif< sizeof...(current_values) == pop_count,
 			typename CurrentList::template push<current_value>, 
@@ -511,7 +503,7 @@ public:
 
 	using end      = value_node<value_t>;
 
-	template <typename any_type = meta_null>            using reverse  = reverse_impl<any_type>::first;
+	template <typename any_type = meta_null>            using reverse  = typename reverse_impl<any_type>::first;
 
 	template <size_t shift_count = 1>                   using shift    = meta_if<shift_count == 0, self, typename value_list<value_t, values...>::shift<shift_count - 1>>;
 
@@ -550,7 +542,7 @@ public:
 
 	template <template <value_t> class Predicate, value_t new_value> using replace_if = value_list<value_t, (Predicate<value>::value ? new_value : value), (Predicate<values>::value ? new_value : values)... >;
 
-	template <value_t separator>                        using split    = for_value_range<begin, end, split_f, types_pack<type_list<value_list<value_t>>, meta<separator>>>::first;
+	template <value_t separator>                        using split      = typename for_value_range<begin, end, split_f, types_pack<type_list<value_list<value_t>>, meta<separator>>>::first;
 
 	//slice range: [from, to)
 	//supports negative index like -1, but need to cast to size_t type before using: size_t(-1)
