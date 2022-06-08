@@ -236,7 +236,7 @@ struct types_pack {
 
 	template <typename... NewTypes>   using unshift = types_pack<NewTypes...>;
 	template <typename... NewTypes>   using push    = types_pack<NewTypes...>;
-	using shift   = types_pack<>;
+	using shift = types_pack<>;
 };
 template <typename T, typename... Ts>
 struct types_pack<T, Ts...> {
@@ -248,7 +248,7 @@ struct types_pack<T, Ts...> {
 	//some simple function
 	template <typename... NewTypes>   using unshift = types_pack<NewTypes..., T, Ts...>;
 	template <typename... NewTypes>   using push    = types_pack<T, Ts..., NewTypes...>;
-	using shift   = types_pack<Ts...>;
+	using shift = types_pack<Ts...>;
 };
 
 template <template <typename...> class F>
