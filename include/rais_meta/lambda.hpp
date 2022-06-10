@@ -57,7 +57,7 @@ private:
 		using result = function<F, typename args_list::push<Args...>, options>;
 	};
 	template <typename... Args>
-	struct closure_impl {
+	struct eval_impl {
 		using result = typename warpper::unroll_apply<typename args_list::push<Args...>>;
 	};
 
@@ -71,43 +71,43 @@ public:
 	using reset_options = function<F, args_list, NewOptions>;
 
 	template <typename... Args>
-	using closure = typename closure_impl<Args...>::result;
+	using eval = typename eval_impl<Args...>::result;
 
 	template <typename... Args>
 	using apply = typename apply_impl<(sizeof...(Args) + current_argument_count >= full_argument_count), Args...>::result;
 
 };
 
-
 template <template <typename...> class F, typename ArgsList = type_list<>, typename Options = function_options<>>
 using fn = function<F, ArgsList, Options>;
 
 namespace bind_detail {
 
-//to detect arg placeholder
+//to detect parameter placeholder
 struct placeholder_flag {};
 
 //as argument placeholders
 template <size_t N>
-struct arg: placeholder_flag {
+struct param: placeholder_flag {
 	static constexpr size_t n = N;
 }; 
 
 template <typename T>
-using args_filter = meta_if<std::is_base_of_v<placeholder_flag, T>, T, arg<0>>;
+using arg_filter = meta_if<std::is_base_of_v<placeholder_flag, T>, T, param<0>>;
 
 template <typename ArgsList, typename ReplaceArgsList, typename N>
-using arg_map = types_pack<typename ArgsList::replace<arg<N::value>, typename ReplaceArgsList::front>, typename ReplaceArgsList::shift<>, typename N::inc>;
+using arg_map = types_pack<typename ArgsList::replace<param<N::value>, typename ReplaceArgsList::front>, typename ReplaceArgsList::shift<>, typename N::inc>;
 
 template <template <typename...> class F, typename... BindedArgs>
 struct binded_function {
-	static constexpr size_t max_placeholder = max(args_filter<BindedArgs>::n...);
+	static constexpr size_t max_placeholder = max(arg_filter<BindedArgs>::n...);
 	using args_list = type_list<BindedArgs...>;
 
 private:
 	template <typename... Args>
-	struct closure_impl {
+	struct eval_impl {
 	private:
+		static_assert(sizeof...(Args) > max_placeholder, "too few arguments");
 		using temp = for_n<max_placeholder + 1, arg_map, types_pack<args_list, type_list<Args...>, meta<0>>>;
 	public:
 		using result = unroll_apply<F, typename temp::first::template concat<typename temp::shift::first> >; 
@@ -115,21 +115,91 @@ private:
 
 public:
 	template <typename... Args>
-	using closure = typename closure_impl<Args...>::result;
+	using eval = typename eval_impl<Args...>::result;
 };
 
 } //namespace bind_detail
 
+//placeholder type
 template <size_t N>
-using arg = typename bind_detail::arg<N>;
+using param = typename bind_detail::param<N>;
+
+template <typename T>
+using is_placeholder = meta_bool<std::is_base_of_v<bind_detail::placeholder_flag, T>>;
 
 template <template <typename...> class F, typename... BindedArgs>
 using bind = typename bind_detail::binded_function<F, BindedArgs...>;
 
+
+namespace lambda_detail {
+
+
+enum class argument_category {
+	placeholder, 
+	expression,
+	binded_type
+};
+
+struct expression_flag {};
+
+template <template <typename...> class F, typename... SubExpressions>
+struct expression_node: expression_flag {
+	using fn = function<F>;
+	using sub_expression_list = type_list<SubExpressions...>;
+
+private:
+	
+	template <typename Arg, typename ReplaceArgsList, argument_category category>
+	struct replace_placeholder_impl {};
+	template <typename Arg, typename ReplaceArgsList>
+	struct replace_placeholder_impl<Arg, ReplaceArgsList, argument_category::placeholder> {
+		//Arg is placeholder
+		using result = typename ReplaceArgsList::get<Arg::n>;
+	};
+	template <typename Arg, typename ReplaceArgsList>
+	struct replace_placeholder_impl<Arg, ReplaceArgsList, argument_category::expression> {
+		//Arg is expression
+		using result = typename Arg::template eval<ReplaceArgsList>;
+	};
+	template <typename Arg, typename ReplaceArgsList>
+	struct replace_placeholder_impl<Arg, ReplaceArgsList, argument_category::binded_type> {
+		//Arg is binded type
+		using result = Arg;
+	};
+
+	template <typename Arg, typename ReplaceArgsList>
+	using replace_placeholder = typename replace_placeholder_impl<Arg, ReplaceArgsList, 
+		is_placeholder<Arg>::value              ? argument_category::placeholder :
+		std::is_base_of_v<expression_flag, Arg> ? argument_category::expression  : 
+		                                          argument_category::binded_type
+	>::result;
+
+public:
+	template <typename ReplaceArgsList>
+	using eval = F<replace_placeholder<SubExpressions, ReplaceArgsList>...>;
+};
+
+
+template <template <typename...> class F, typename... SubExpressions>
+struct lambda {
+	using root_node = expression_node<F, SubExpressions...>;
+	using outer_fn = function<F>;
+	using sub_expression_list = type_list<SubExpressions...>;
+
+	template <typename... ReplaceArgsList>
+	using eval = typename root_node::eval<type_list<ReplaceArgsList...>>;
+};
+
+} //namespace lambda_detail
+
+template <template <typename...> class F, typename... SubExpressions>
+using lambda = lambda_detail::lambda<F, SubExpressions...>;
+
+template <template <typename...> class F, typename... SubExpressions>
+using expr = lambda_detail::expression_node<F, SubExpressions...>;
 
 } //namespace meta
 } //namespace rais
 
 
 #endif //RAIS_META_LAMBDA_HPP
-
