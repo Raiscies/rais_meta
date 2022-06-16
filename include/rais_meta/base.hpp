@@ -1,6 +1,12 @@
 #ifndef RAIS_META_BASE_HPP
 #define RAIS_META_BASE_HPP
 
+#if __cplusplus < 201703L
+
+#error library compling stardard requires C++17
+
+#endif
+
 #include <cstddef>
 #include <type_traits>
 
@@ -275,39 +281,78 @@ public:
 	using unroll_apply = typename unroll_apply_impl<ArgsPack>::result;
 
 };
-template <typename ValueT>
-struct nontype_param {
-	using value_t = ValueT;
 
-	template <template <value_t, typename...> class F> //with one non-type param
+ template <template <typename...> class F, typename ArgsPack>
+using unroll_apply = typename function_warpper<F>::template unroll_apply<ArgsPack>;
+
+//template with non-type parameters
+template <size_t nontype_param_count = -1>
+struct nontype {
+	static_assert(nontype_param_count <= 1 or nontype_param_count == size_t(-1), 
+		"unsupported non-type parameter count");
+};
+
+template <>
+struct nontype<size_t(-1)> {
+	//unlimited non-type parameter count
+	template <template <auto...> class F>
 	struct function_warpper {
-	using value_t = ValueT;
-
 	private:
 		template <typename ArgsPack>
 		struct unroll_apply_impl {};
-		template <template <typename...> class TypesPack, typename ValueWarpper, typename... Args>
-		struct unroll_apply_impl<TypesPack<ValueWarpper, Args...>> {
-			using result = F<ValueWarpper::value, Args...>;
+		template <template <typename...> class TypesPack, typename... ValueWarppers>
+		struct unroll_apply_impl<TypesPack<ValueWarppers...>> {
+			using result = F<ValueWarppers::value...>;
+		};
+		template <template <auto...> class ValuesPack, auto... values>
+		struct unroll_apply_impl<ValuesPack<values...>> {
+			using result = F<values...>;
 		};
 
 	public:
-		template <value_t value, typename... Args>
-		using apply = F<value, Args...>;
+		template <auto... values>
+		using apply = F<values...>;
 
 		template <typename ArgsPack>
 		using unroll_apply = typename unroll_apply_impl<ArgsPack>::result;
-
 	};
+	template <template <auto...> class F, typename ArgsPack>
+	using unroll_apply = typename function_warpper<F>::template unroll_apply<ArgsPack>;
+};
 
-	template <template <value_t, typename...> class F, typename ArgsPack>
+template <>
+struct nontype<0> {
+	template <template <typename...> class F>
+	using function_warpper = typename rais::meta::function_warpper<F>;
+};
+
+template <>
+struct nontype<1> {
+	template <template <auto, typename...> class F>
+	struct function_warpper {
+	private:
+		template <typename ArgsPack>
+		struct unroll_apply_impl {};
+		template <template <typename...> class ArgsPack, typename ValueWarpper, typename... Args>
+		struct unroll_apply_impl<ArgsPack<ValueWarpper, Args...>> {
+			using result = F<ValueWarpper::value, Args...>;
+		};
+		template <template <auto, typename...> class ArgsPack, auto arg, typename... Args>
+		struct unroll_apply_impl<ArgsPack<arg, Args...>> {
+			using result = F<arg, Args...>;
+		};
+
+	public:
+		template <auto arg, typename... Args>
+		using apply = F<arg, Args...>;
+
+		template <typename ArgsPack>
+		using unroll_apply = typename unroll_apply_impl<ArgsPack>::result;
+	};
+	template <template <auto, typename...> class F, typename ArgsPack>
 	using unroll_apply = typename function_warpper<F>::template unroll_apply<ArgsPack>;
 
 };
-
-
-template <template <typename...> class F, typename ArgsPack>
-using unroll_apply = typename function_warpper<F>::template unroll_apply<ArgsPack>;
 
 
 //tools

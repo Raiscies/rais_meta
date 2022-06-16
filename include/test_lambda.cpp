@@ -21,16 +21,10 @@ int main() {
 	return 0;
 }
 
-template <template <auto, typename...> class F>
-struct nontype_param_warpper {
-	template <auto arg, typename... Args>
-	struct apply_impl {
-		using result = F<arg, Args...>;
-	};
-	template <auto arg, typename... Args>
-	using apply = typename apply_impl<arg, Args...>::result;
-};
 
-using warpper_if = typename nontype_param_warpper<meta_if>::apply<true, int, void>;
+// using warpper_if = typename nontype_param_warpper<meta_if>::apply<true, int, void>;
+// using warpper_param = typename nontype_param_warpper<param>::apply<10>;
 
-debug_type<warpper_if>;
+// debug_type<warpper_param>;
+
+

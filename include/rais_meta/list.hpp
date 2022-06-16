@@ -39,7 +39,7 @@ template <typename ContextPack, typename Iterator, typename IteratorEnd, typenam
 using for_value_range_function = types_pack<typename FunctionWarpper::template unroll_apply<typename ContextPack::template unshift<meta<Iterator::value>>>, typename Iterator::next, IteratorEnd, FunctionWarpper>;
 
 template <typename IteratorBegin, typename IteratorEnd, template <typename IteratorBegin::value_t, typename...> class Function, typename InitContextPack>
-using for_value_range_impl = remove_break_warp<typename meta_while<for_range_predicate, for_value_range_function, types_pack<InitContextPack, IteratorBegin, IteratorEnd, typename nontype_param<typename IteratorBegin::value_t>::function_warpper<Function>> >::first>;
+using for_value_range_impl = remove_break_warp<typename meta_while<for_range_predicate, for_value_range_function, types_pack<InitContextPack, IteratorBegin, IteratorEnd, typename nontype<1>::function_warpper<Function>> >::first>;
 
 
 } // namespace for_range_detail
@@ -517,7 +517,7 @@ public:
 
 	template <size_t index>                             using erase_by_index = typename for_value_range<begin, end, erase_by_index_f, types_pack<value_list<value_t>, meta_size_t<index>, meta_size_t<0>>>::first;
 
-	template <template <value_t> class Predicate>       using erase_if = typename for_value_range<begin, end, erase_if_f, types_pack<value_list<value_t>, typename nontype_param<value_t>::function_warpper<Predicate>>>::first;
+	template <template <value_t> class Predicate>       using erase_if = typename for_value_range<begin, end, erase_if_f, types_pack<value_list<value_t>, typename nontype<1>::function_warpper<Predicate>>>::first;
 
 	template <size_t index, value_t... new_values>      using insert   = typename insert_impl<0, index, (index >= length), head, value_list<value_t>, new_values...>::result;
 
@@ -529,7 +529,7 @@ public:
 
 	template <value_t target>                           using contains = meta_bool<(target == value) || ((target == values) || ...)>;
 
-	template <template <value_t> class Predicate>       using find_if  = typename for_value_range<begin, end, find_if_f, types_pack<head, typename nontype_param<value_t>::function_warpper<Predicate>>>::first;
+	template <template <value_t> class Predicate>       using find_if  = typename for_value_range<begin, end, find_if_f, types_pack<head, typename nontype<1>::function_warpper<Predicate>>>::first;
 
 	template <value_t target>                           using find     = find_if<find_pred<target>::template f>;
 
