@@ -186,8 +186,8 @@ struct lambda {
 	using outer_fn = function<F>;
 	using sub_expression_list = type_list<SubExpressions...>;
 
-	template <typename... ReplaceArgsList>
-	using eval = typename root_node::eval<type_list<ReplaceArgsList...>>;
+	template <typename... ReplaceArgs>
+	using eval = typename root_node::eval<type_list<ReplaceArgs...>>;
 };
 
 } //namespace lambda_detail
@@ -197,6 +197,7 @@ using lambda = lambda_detail::lambda<F, SubExpressions...>;
 
 template <template <typename...> class F, typename... SubExpressions>
 using expr = lambda_detail::expression_node<F, SubExpressions...>;
+
 
 } //namespace meta
 } //namespace rais
