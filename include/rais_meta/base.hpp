@@ -621,6 +621,18 @@ template <typename T, template <typename...> class Templ>
 using is_instantiated_from = typename is_instantiated_from_detail::is_instantiated_from_impl<T, Templ>::result;
 
 
+
+namespace op {
+
+template <typename C, typename T, typename F>
+using if_ = meta_if<C::value, T, F>;
+
+template <typename Predicate, typename Function, typename InitContextPack>
+using while_ = meta_while<Predicate::template eval, Function::template eval, InitContextPack>;
+
+} //namespace op
+
+
 } // namespace meta
 } // namespace rais
 
