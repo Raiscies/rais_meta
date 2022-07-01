@@ -15,16 +15,14 @@ using binded_div = bind<type_list, param<4>, param<1>, param<0>>;
 
 // debug_type<less_f::apply<meta<3>, meta<54>, meta<6>>::closure<>>;
 
-// using l = lambda<oneparam<>>
+using l = lambda<op::if_, expr<std::is_same, param<0>, param<1>>, param<2>, param<3>>;
 
 int main() {
+
+	using result = typename l::eval<void, decltype(nullptr), meta_bool<true>, meta_bool<false>>;
+
+	debug_type<result>;
 	return 0;
 }
-
-
-// using warpper_if = typename nontype_param_warpper<meta_if>::apply<true, int, void>;
-// using warpper_param = typename nontype_param_warpper<param>::apply<10>;
-
-// debug_type<warpper_param>;
 
 
