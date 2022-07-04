@@ -639,6 +639,9 @@ using if_ = meta_if<C::value, T, F>;
 template <typename Predicate, typename Function, typename InitContextPack>
 using while_ = meta_while<Predicate::template eval, Function::template eval, InitContextPack>;
 
+template <typename T>
+using result_of = T::result;
+
 } //namespace op
 
 
