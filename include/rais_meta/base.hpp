@@ -277,6 +277,9 @@ public:
 	template <typename... Args>
 	using apply = typename apply_impl<Args...>::result;
 
+	template <typename... Args>
+	using eval = apply<Args...>;
+
 	template <typename ArgsPack>
 	using unroll_apply = typename unroll_apply_impl<ArgsPack>::result;
 
@@ -310,8 +313,11 @@ struct nontype<size_t(-1)> {
 		};
 
 	public:
-		template <auto... values>
-		using apply = F<values...>;
+		template <auto... args>
+		using apply = F<args...>;
+
+		template <auto... args>
+		using eval = apply<args...>;
 
 		template <typename ArgsPack>
 		using unroll_apply = typename unroll_apply_impl<ArgsPack>::result;
@@ -345,6 +351,9 @@ struct nontype<1> {
 	public:
 		template <auto arg, typename... Args>
 		using apply = F<arg, Args...>;
+
+		template <auto arg, typename... Args>
+		using eval = apply<arg, Args...>;
 
 		template <typename ArgsPack>
 		using unroll_apply = typename unroll_apply_impl<ArgsPack>::result;

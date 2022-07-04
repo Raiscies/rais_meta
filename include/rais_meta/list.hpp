@@ -6,6 +6,11 @@
 namespace rais {
 namespace meta {
 
+enum class list_category {
+	type_list, 
+	value_list
+};
+
 template <typename...>
 struct type_node {
 
@@ -61,6 +66,8 @@ struct type_list {
 
 	using head = type_node<>;
 	static constexpr size_t length = 0;
+
+	static constexpr list_category category = list_category::type_list;
 
 private:
 
@@ -134,6 +141,8 @@ struct type_list<Type, Types...> {
 
 	using head = type_node<Type, Types...>;
 	static constexpr size_t length = sizeof...(Types) + 1;
+
+	static constexpr list_category category = list_category::type_list;
 
 private:
 
@@ -321,7 +330,8 @@ struct value_list {
 
 	static constexpr size_t length = 0;
 
-	// static constexpr void* data = nullptr;
+	static constexpr list_category category = list_category::value_list;
+
 private:
 	template <auto...>
 	friend class value_list;
@@ -393,6 +403,8 @@ struct value_list<value, values...> {
 	using head = value_node<value, values...>;
 
 	static constexpr size_t length = sizeof...(values) + 1;
+
+	static constexpr list_category category = list_category::value_list;
 
 private:
 	template <auto...>
@@ -572,6 +584,8 @@ struct value_list<value, values...> {
 	static constexpr size_t length = sizeof...(values) + 1;
 
 	static constexpr T array[length] = {value, values...};
+
+	static constexpr list_category category = list_category::value_list;
 private:
 	template <auto...>
 	friend class value_list;
@@ -745,24 +759,146 @@ struct meta_string: value_list<chars..., CharT('\0')> {
 
 namespace op {
 
+namespace detail {
+
+
+template <typename List, list_category category, typename... Args>
+struct push_impl {};
+template <typename List, list_category category, typename... Args>
+struct push_impl<List, list_category::type_list, Args...> {
+	using result = typename List::push<Args...>;
+};
+template <typename List, list_category category, typename... Args>
+struct push_impl<List, list_category::value_list, Args...> {
+	using result = typename List::push<Args::value...>;
+};
+
+template <typename List, list_category category, typename... Args>
+struct unshift_impl {};
+template <typename List, list_category category, typename... Args>
+struct unshift_impl<List, list_category::type_list, Args...> {
+	using result = typename List::unshift<Args...>;
+};
+template <typename List, list_category category, typename... Args>
+struct unshift_impl<List, list_category::value_list, Args...> {
+	using result = typename List::unshift<Args::value...>;
+};
+
+template <typename List, list_category category, typename Index, typename... Args>
+struct insert_impl {};
+template <typename List, list_category category, typename Index, typename... Args>
+struct insert_impl<List, list_category::type_list, Index, Args...> {
+	using result = typename List::insert<Index::value, Args...>;
+};
+template <typename List, list_category category, typename Index, typename... Args>
+struct insert_impl<List, list_category::value_list, Index, Args...> {
+	using result = typename List::insert<Index::value, Args::value...>;
+};
+
+template <typename List, list_category category, typename Index, typename Arg>
+struct set_impl {};
+template <typename List, list_category category, typename Index, typename Arg>
+struct set_impl<List, list_category::type_list, Index, Arg> {
+	using result = typename List::set<Index::value, Arg>;
+};
+template <typename List, list_category category, typename Index, typename Arg>
+struct set_impl<List, list_category::value_list, Index, Arg> {
+	using result = typename List::set<Index::value, Arg::value>;
+};
+
+template <typename List, list_category category, typename Index>
+struct get_impl {};
+template <typename List, list_category category, typename Index>
+struct get_impl<List, list_category::type_list, Index> {
+	using result = typename List::get<Index::value>;
+};
+template <typename List, list_category category, typename Index>
+struct get_impl<List, list_category::value_list, Index> {
+	using result = typename List::get_warp<Index::value>;
+};
+
+template <typename List, list_category category, typename Element>
+struct erase_impl {};
+template <typename List, list_category category, typename Element>
+struct erase_impl<List, list_category::type_list, Element> {
+	using result = typename List::erase<Element>;
+};
+template <typename List, list_category category, typename Element>
+struct erase_impl<List, list_category::value_list, Element> {
+	using result = typename List::erase<Element::value>;
+};
+
+template <typename List, list_category category, typename Element>
+struct find_impl {};
+template <typename List, list_category category, typename Element>
+struct find_impl<List, list_category::type_list, Element> {
+	using result = typename List::find<Element>;
+};
+template <typename List, list_category category, typename Element>
+struct find_impl<List, list_category::value_list, Element> {
+	using result = typename List::find<Element::value>;
+};
+
+template <typename List, list_category category, typename Element>
+struct split_impl {};
+template <typename List, list_category category, typename Element>
+struct split_impl<List, list_category::type_list, Element> {
+	using result = typename List::split<Element>;
+};
+template <typename List, list_category category, typename Element>
+struct split_impl<List, list_category::value_list, Element> {
+	using result = typename List::split<Element::value>;
+};
+
+template <typename List, list_category category, typename OldElement, typename NewElement>
+struct replace_impl {};
+template <typename List, list_category category, typename OldElement, typename NewElement>
+struct replace_impl<List, list_category::type_list, OldElement, NewElement> {
+	using result = typename List::replace<OldElement, NewElement>;
+};
+template <typename List, list_category category, typename OldElement, typename NewElement>
+struct replace_impl<List, list_category::value_list, OldElement, NewElement> {
+	using result = typename List::replace<OldElement::value, NewElement::value>;
+};
+
+template <typename List, list_category category, typename Predicate, typename NewElement>
+struct replace_if_impl {};
+template <typename List, list_category category, typename Predicate, typename NewElement>
+struct replace_if_impl<List, list_category::type_list, Predicate, NewElement> {
+	using result = typename List::replace_if<typename Predicate::template eval, NewElement>;
+};
+template <typename List, list_category category, typename Predicate, typename NewElement>
+struct replace_if_impl<List, list_category::value_list, Predicate, NewElement> {
+	using result = typename List::replace_if<typename Predicate::template eval, NewElement::value>;
+};
+
+} //namespace helper_detail
 
 
 template <typename List> using begin    = typename List::begin;
 template <typename List> using end      = typename List::end;
 template <typename List> using reverse  = typename List::template reverse<>;
-
-template <typename List, typename ShiftCount> using shift = typename List::template shift<ShiftCount::value>;
-template <typename List, typename PopCount>   using pop   = typename List::template pop<PopCount::value>;
-
+template <typename List, typename ShiftCount> using shift          = typename List::template shift<ShiftCount::value>;
+template <typename List, typename PopCount>   using pop            = typename List::template pop<PopCount::value>;
 template <typename List, typename Index>      using erase_by_index = typename List::template erase_by_index<Index::value>;
+template <typename List, typename Predicate>  using erase_if       = typename List::template erase_if<Predicate::template eval>;
+template <typename List, typename... Lists>   using concat         = typename List::template concat<Lists...>;
+template <typename List, typename Predicate>  using find_if        = typename List::template find_if<Predicate::template eval>;
+template <typename List, typename Function>   using for_each       = typename List::template for_each<Function::template eval>;
+template <typename List, typename Container>  using cast           = typename List::template cast<Container::template eval>;
+template <typename List, typename From, typename To>  using slice  = typename List::template slice<From::value, To::value>;
 
-template <typename List, typename Predicate>  using erase_if = typename List::template erase_if<Predicate::template eval>;
-template <typename List, typename... Lists>   using concat = typename List::template concat<Lists...>;
-template <typename List, typename Predicate>  using find_if = typename List::template find_if<Predicate::template eval>;
-template <typename List, typename Function>   using for_each = typename List::template for_each<Function::template eval>;
-template <typename List, typename Container>  using cast = typename List::template cast<Container::template eval>;
 
-// template <typename List, typename... NewElements> using push = meta_if<is_> 
+template <typename List, typename... NewElements> using push    = typename detail::   push_impl<List, List::category, NewElements...>::result;
+template <typename List, typename... NewElements> using unshift = typename detail::unshift_impl<List, List::category, NewElements...>::result;
+template <typename List, typename Index>          using get     = typename detail::    get_impl<List, List::category, Index>::result;
+template <typename List, typename Element>        using erase   = typename detail::  erase_impl<List, List::category, Element>::result;
+template <typename List, typename Element>        using find    = typename detail::   find_impl<List, List::category, Element>::result;
+template <typename List, typename Element>        using split   = typename detail::  split_impl<List, List::category, Element>::result;
+template <typename List, typename OldElement, typename NewElement> using replace    = typename detail::replace_impl<List, List::category, OldElement, NewElement>::result;
+template <typename List, typename Predicate, typename NewElement>  using replace_if = typename detail::replace_if_impl<List, List::category, Predicate, NewElement>::result;
+template <typename List, typename Index, typename NewValue>        using set        = typename detail::set_impl<List, List::category, Index, NewValue>::result;
+template <typename List, typename Index, typename... NewElements>  using insert     = typename detail::insert_impl<List, List::category, List::category, Index, NewElements...>::result;
 
 } //namespace op
 
@@ -772,3 +908,4 @@ template <typename List, typename Container>  using cast = typename List::templa
 } // namespace rais
 
 #endif //RAIS_META_LIST_HPP
+
